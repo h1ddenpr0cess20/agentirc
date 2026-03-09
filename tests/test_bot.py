@@ -16,6 +16,7 @@ Coverage strategy:
 from __future__ import annotations
 
 import asyncio
+import logging
 from unittest.mock import AsyncMock, patch, call
 
 from ircbot.bot import IRCBot, Command
@@ -206,6 +207,22 @@ class TestCommandDispatch:
         msg = parse(":alice!u@h PRIVMSG #test :!nonexistent")
         # Should not raise
         _run(bot._try_command(msg))
+
+    def test_logs_only_valid_commands(self, caplog):
+        bot = _bot()
+
+        @bot.command("ping")
+        async def ping(b, msg, args):
+            del b, msg, args
+
+        with caplog.at_level(logging.INFO, logger="ircbot.bot"):
+            _run(bot._try_command(parse(":alice!u@h PRIVMSG #test :hello there")))
+            _run(bot._try_command(parse(":alice!u@h PRIVMSG #test :!missing")))
+            _run(bot._try_command(parse(":alice!u@h PRIVMSG #test :!ping now")))
+
+        assert [record.getMessage() for record in caplog.records] == [
+            "command [#test] <alice> ping now"
+        ]
 
     def test_custom_prefix(self):
         bot = _bot(command_prefix=".")

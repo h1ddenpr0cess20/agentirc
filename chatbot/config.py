@@ -1,0 +1,110 @@
+"""Configuration for the AI chatbot layer."""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+
+from ircbot.config import BotConfig, load_env
+
+_DEFAULT_PERSONALITY = "a helpful IRC chatbot"
+_DEFAULT_PROMPT_PREFIX = "You are "
+_DEFAULT_PROMPT_SUFFIX = "."
+_DEFAULT_PROMPT_SUFFIX_EXTRA = " Keep responses concise (under 400 chars) since this is IRC."
+
+
+def _parse_csv(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _parse_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+@dataclass(frozen=True, slots=True)
+class ChatConfig:
+    """AI chatbot configuration."""
+
+    irc: BotConfig
+    models: dict[str, list[str]]
+    api_keys: dict[str, str]
+    base_urls: dict[str, str]
+    default_model: str
+    default_personality: str = _DEFAULT_PERSONALITY
+    prompt_prefix: str = _DEFAULT_PROMPT_PREFIX
+    prompt_suffix: str = _DEFAULT_PROMPT_SUFFIX
+    prompt_suffix_extra: str = _DEFAULT_PROMPT_SUFFIX_EXTRA
+    default_system_prompt: str = ""
+    max_tokens: int = 300
+    tools: list[str] = field(default_factory=lambda: ["web_search", "x_search", "code_interpreter"])
+    admins: list[str] = field(default_factory=list)
+    server_models: bool = True
+
+    def make_default_prompt(self, *, verbose: bool = False) -> str:
+        """Build the default system prompt for a new conversation."""
+        if self.default_system_prompt:
+            return self.default_system_prompt.strip()
+        extra = "" if verbose else self.prompt_suffix_extra
+        return f"{self.prompt_prefix}{self.default_personality}{self.prompt_suffix}{extra}".strip()
+
+    @classmethod
+    def from_env(cls) -> ChatConfig:
+        """Build config from environment variables."""
+        load_env()
+        openai_models = _parse_csv(os.environ.get("OPENAI_MODELS"))
+        xai_models = _parse_csv(os.environ.get("XAI_MODELS"))
+        lmstudio_models = _parse_csv(os.environ.get("LMSTUDIO_MODELS"))
+
+        legacy_openai_model = os.environ.get("OPENAI_MODEL", "").strip()
+        if legacy_openai_model and legacy_openai_model not in openai_models:
+            openai_models = [legacy_openai_model, *openai_models]
+
+        default_model = os.environ.get("DEFAULT_MODEL", "").strip()
+        if not default_model:
+            default_model = (
+                legacy_openai_model
+                or (openai_models[0] if openai_models else "")
+                or (xai_models[0] if xai_models else "")
+                or (lmstudio_models[0] if lmstudio_models else "")
+            )
+
+        return cls(
+            irc=BotConfig.from_env(),
+            models={
+                "openai": openai_models,
+                "xai": xai_models,
+                "lmstudio": lmstudio_models,
+            },
+            api_keys={
+                "openai": os.environ.get("OPENAI_API_KEY", "").strip(),
+                "xai": os.environ.get("XAI_API_KEY", "").strip(),
+                "lmstudio": os.environ.get("LMSTUDIO_API_KEY", "").strip(),
+            },
+            base_urls={
+                "openai": os.environ.get("OPENAI_API_BASE", "https://api.openai.com").strip(),
+                "xai": os.environ.get("XAI_API_BASE", "https://api.x.ai/v1").strip(),
+                "lmstudio": os.environ.get("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1").strip(),
+            },
+            default_model=default_model,
+            default_personality=os.environ.get(
+                "CHATBOT_DEFAULT_PERSONALITY",
+                os.environ.get("CHATBOT_PERSONALITY", _DEFAULT_PERSONALITY),
+            ).strip()
+            or _DEFAULT_PERSONALITY,
+            prompt_prefix=os.environ.get("CHATBOT_PROMPT_PREFIX", _DEFAULT_PROMPT_PREFIX),
+            prompt_suffix=os.environ.get("CHATBOT_PROMPT_SUFFIX", _DEFAULT_PROMPT_SUFFIX),
+            prompt_suffix_extra=os.environ.get("CHATBOT_PROMPT_SUFFIX_EXTRA", _DEFAULT_PROMPT_SUFFIX_EXTRA),
+            default_system_prompt=os.environ.get("CHATBOT_SYSTEM_PROMPT", "").strip(),
+            max_tokens=int(os.environ.get("CHATBOT_MAX_TOKENS", "300")),
+            tools=[
+                t.strip()
+                for t in os.environ.get("CHATBOT_TOOLS", "web_search,x_search,code_interpreter").split(",")
+                if t.strip()
+            ],
+            admins=[nick.lower() for nick in _parse_csv(os.environ.get("CHATBOT_ADMINS"))],
+            server_models=_parse_bool(os.environ.get("CHATBOT_SERVER_MODELS"), True),
+        )

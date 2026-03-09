@@ -21,7 +21,7 @@ cp .env.example .env
 python -m ircbot
 ```
 
-Pass `--debug` to log every raw IRC line to stderr.
+Info-level logs include startup, connection lifecycle, resolved bot commands, and outbound API calls. Pass `--debug` to also log raw IRC traffic and lower-level IRC event chatter.
 
 > **Requirements:** Python 3.10 or later. No third-party packages needed.
 

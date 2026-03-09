@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import pytest
 
@@ -26,13 +27,20 @@ def minimal_config() -> BotConfig:
 
 @pytest.fixture
 def env_cleanup():
-    """Remove IRC_* env vars before and after a test to avoid leakage."""
-    irc_keys = [k for k in os.environ if k.startswith("IRC_")]
-    saved = {k: os.environ.pop(k) for k in irc_keys}
+    """Restore the environment after each test to avoid leakage."""
+    saved = dict(os.environ)
     yield
-    # Remove anything the test added
-    for k in list(os.environ):
-        if k.startswith("IRC_"):
-            del os.environ[k]
-    # Restore originals
+    os.environ.clear()
     os.environ.update(saved)
+
+
+@pytest.fixture(autouse=True)
+def event_loop_guard():
+    """Provide a default event loop for tests using asyncio.get_event_loop()."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        yield loop
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)

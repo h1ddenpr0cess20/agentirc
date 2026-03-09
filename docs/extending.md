@@ -47,7 +47,7 @@ async def on_welcome(self, msg: IRCMessage) -> None:
 
 ### `on_privmsg(self, msg: IRCMessage)`
 
-Called on every `PRIVMSG`. The default implementation logs the message and then calls `_try_command` to check for a command prefix.
+Called on every `PRIVMSG`. The default implementation calls `_try_command` to check for a command prefix; only resolved commands are logged at info level.
 
 If you override this without calling `super()`, command dispatch stops working.
 

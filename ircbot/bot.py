@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import textwrap
 from dataclasses import dataclass
 from typing import Callable, Awaitable
 
@@ -108,15 +109,39 @@ class IRCBot:
         """Send a raw IRC line."""
         await self.conn.send(line)
 
-    async def privmsg(self, target: str, text: str) -> None:
-        """Send a PRIVMSG, splitting on newlines."""
+    @staticmethod
+    def _chop(text: str, width: int = 420) -> list[str]:
+        """Wrap text into lines under width, preserving word boundaries."""
+        result: list[str] = []
         for line in text.splitlines():
+            if len(line) > width:
+                result.extend(textwrap.wrap(
+                    line,
+                    width=width,
+                    drop_whitespace=False,
+                    replace_whitespace=False,
+                    fix_sentence_endings=True,
+                    break_long_words=False,
+                ))
+            else:
+                result.append(line)
+        return result
+
+    async def privmsg(self, target: str, text: str) -> None:
+        """Send a PRIVMSG, chopping long lines at word boundaries."""
+        lines = self._chop(text)
+        for i, line in enumerate(lines):
             await self.send(f"PRIVMSG {target} :{line}")
+            if i < len(lines) - 1:
+                await asyncio.sleep(1)
 
     async def notice(self, target: str, text: str) -> None:
-        """Send a NOTICE."""
-        for line in text.splitlines():
+        """Send a NOTICE, chopping long lines at word boundaries."""
+        lines = self._chop(text)
+        for i, line in enumerate(lines):
             await self.send(f"NOTICE {target} :{line}")
+            if i < len(lines) - 1:
+                await asyncio.sleep(1)
 
     async def reply(self, msg: protocol.IRCMessage, text: str) -> None:
         """Reply in the appropriate context (channel or DM)."""
@@ -199,23 +224,22 @@ class IRCBot:
 
     async def on_privmsg(self, msg: protocol.IRCMessage) -> None:
         """Called on every PRIVMSG. Dispatches commands automatically."""
-        log.info("[%s] <%s> %s", msg.reply_target, msg.nick, msg.text)
         await self._try_command(msg)
 
     async def on_join(self, msg: protocol.IRCMessage) -> None:
         """Called when someone (including the bot) joins a channel."""
-        log.info("%s joined %s", msg.nick, msg.target)
+        log.debug("%s joined %s", msg.nick, msg.target)
 
     async def on_part(self, msg: protocol.IRCMessage) -> None:
         """Called when someone parts a channel."""
         reason = msg.text if len(msg.params) > 1 else ""
-        log.info("%s left %s (%s)", msg.nick, msg.target, reason)
+        log.debug("%s left %s (%s)", msg.nick, msg.target, reason)
 
     async def on_kick(self, msg: protocol.IRCMessage) -> None:
         """Called when someone is kicked. Auto-rejoins if it is the bot."""
         kicked = msg.params[1] if len(msg.params) > 1 else ""
         reason = msg.text if len(msg.params) > 2 else ""
-        log.info("%s kicked from %s (%s)", kicked, msg.target, reason)
+        log.debug("%s kicked from %s (%s)", kicked, msg.target, reason)
         if kicked == self.nick:
             await asyncio.sleep(5)
             await self.join(msg.target)
@@ -242,6 +266,11 @@ class IRCBot:
         cmd = self.get_command(cmd_name)
         if cmd is None:
             return
+
+        if args:
+            log.info("command [%s] <%s> %s %s", msg.reply_target, msg.nick, cmd.name, args)
+        else:
+            log.info("command [%s] <%s> %s", msg.reply_target, msg.nick, cmd.name)
 
         try:
             await cmd.handler(self, msg, args)
