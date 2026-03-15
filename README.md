@@ -86,6 +86,8 @@ Built-in IRC commands (`!ping`, `!time`, `!help`) are also available.
 - [docs/commands.md](docs/commands.md) -- command registry and decorator API
 - [docs/extending.md](docs/extending.md) -- subclassing IRCBot, event hooks
 - [docs/ai-agent.md](docs/ai-agent.md) -- AI agent architecture, providers, tools, and history
+- [docs/ai-output-disclaimer.md](docs/ai-output-disclaimer.md) -- AI output disclaimer and conditions of use
+- [docs/not-a-companion.md](docs/not-a-companion.md) -- project scope and intended use
 
 ## License
 
