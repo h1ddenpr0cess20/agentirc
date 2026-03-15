@@ -1,4 +1,4 @@
-"""AI-powered IRC chatbot that wraps the base IRCBot."""
+"""AI-powered IRC agent that wraps the base IRCBot."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from .models import (
     pick_default_model,
     provider_for_model,
 )
-from .tools import tools_for_model
+from .tools import build_tools, tools_for_model
 
 log = logging.getLogger(__name__)
 
@@ -36,12 +36,22 @@ class ChatBot:
         self.personality = self.default_personality
         self.tools_enabled = True
         self.verbose = False
+        self.search_country_enabled = bool(config.web_search_country)
+
+        store_path = None
+        encryption_key = None
+        if config.history_encryption_key:
+            store_path = "."
+            encryption_key = config.history_encryption_key
+
         self.history = HistoryStore(
             prompt_prefix=config.prompt_prefix,
             prompt_suffix=config.prompt_suffix,
             personality=config.default_personality,
             prompt_suffix_extra=config.prompt_suffix_extra,
             max_items=24,
+            store_path=store_path,
+            encryption_key=encryption_key,
         )
 
         self._user_models: dict[str, dict[str, str]] = {}
@@ -203,6 +213,78 @@ class ChatBot:
             self.personality = self.default_personality
             await bot.reply(msg, "Bot has been reset for everyone.")
 
+        @self.bot.command("country", help="Admin: toggle search country filtering: !country [on|off|status]")
+        async def cmd_country(bot: IRCBot, msg: IRCMessage, args: str) -> None:
+            if not self._is_admin(msg.nick):
+                await bot.reply(msg, "Admin only.")
+                return
+            country = self.config.web_search_country
+            if not country:
+                await bot.reply(msg, "No search country configured (WEB_SEARCH_COUNTRY not set).")
+                return
+            arg = args.strip().lower()
+            if arg in ("", "status"):
+                state = "enabled" if self.search_country_enabled else "disabled"
+                await bot.reply(msg, f"Search country filtering ({country}): {state}")
+                return
+            if arg in ("on", "enable", "enabled"):
+                self.search_country_enabled = True
+            elif arg in ("off", "disable", "disabled"):
+                self.search_country_enabled = False
+            else:
+                self.search_country_enabled = not self.search_country_enabled
+            state = "enabled" if self.search_country_enabled else "disabled"
+            await bot.reply(msg, f"Search country filtering ({country}): {state}")
+
+        @self.bot.command("location", help="Set your location: !location <place> | !location clear")
+        async def cmd_location(bot: IRCBot, msg: IRCMessage, args: str) -> None:
+            _room, user = self._thread_key(msg, msg.nick)
+            arg = args.strip()
+            if not arg:
+                loc = self.history.get_location(user)
+                if loc:
+                    await bot.reply(msg, f"Your location: {loc}")
+                else:
+                    await bot.reply(msg, "No location set. Usage: !location <place>")
+                return
+            if arg.lower() in ("clear", "remove", "reset", "none"):
+                self.history.set_location(user, "")
+                await bot.reply(msg, "Location cleared.")
+                return
+            self.history.set_location(user, arg)
+            await bot.reply(msg, f"Location set to: {arg}")
+
+        @self.bot.command("join", help="Admin: join a channel: !join <#channel>")
+        async def cmd_join(bot: IRCBot, msg: IRCMessage, args: str) -> None:
+            if not self._is_admin(msg.nick):
+                await bot.reply(msg, "Admin only.")
+                return
+            channel = args.strip()
+            if not channel:
+                await bot.reply(msg, "Usage: !join <#channel>")
+                return
+            if not channel.startswith(("#", "&", "!", "+")):
+                channel = f"#{channel}"
+            await bot.join(channel)
+            await bot.reply(msg, f"Joined {channel}")
+
+        @self.bot.command("part", help="Admin: leave a channel: !part [#channel] [reason]")
+        async def cmd_part(bot: IRCBot, msg: IRCMessage, args: str) -> None:
+            if not self._is_admin(msg.nick):
+                await bot.reply(msg, "Admin only.")
+                return
+            parts = args.strip().split(None, 1)
+            if parts and parts[0].startswith(("#", "&", "!", "+")):
+                channel = parts[0]
+                reason = parts[1] if len(parts) > 1 else ""
+            elif msg.is_channel:
+                channel = msg.target
+                reason = args.strip()
+            else:
+                await bot.reply(msg, "Usage: !part <#channel> [reason]")
+                return
+            await bot.part(channel, reason)
+
     def _thread_key(self, msg: IRCMessage, user_nick: str) -> tuple[str, str]:
         room = msg.target.lower() if msg.is_channel else "__dm__"
         return (room, user_nick.lower())
@@ -325,7 +407,9 @@ class ChatBot:
             await bot.reply(msg, f"No API base configured for provider '{provider}'.")
             return
 
-        tools = tools_for_model(self.config.tools, provider, model) if self.tools_enabled else []
+        tool_names = tools_for_model(self.config.tools, provider, model) if self.tools_enabled else []
+        country = self.config.web_search_country if self.search_country_enabled else ""
+        tools = build_tools(tool_names, provider, web_search_country=country)
         try:
             reply, _response_id = await self.client.ask_messages(
                 messages,
@@ -333,7 +417,7 @@ class ChatBot:
                 provider=provider,
                 api_base=api_base,
                 api_key=self._api_key(provider),
-                enabled_tools=tools,
+                built_tools=tools,
                 max_tokens=self.config.max_tokens,
             )
         except Exception:
@@ -348,5 +432,6 @@ class ChatBot:
                 await bot.reply(msg, line)
 
     async def run(self) -> None:
-        """Start the chatbot."""
+        """Start the agent."""
+        await self._refresh_models()
         await self.bot.run()

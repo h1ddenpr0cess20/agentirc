@@ -1,9 +1,9 @@
-"""Tests for chatbot model filtering/provider mapping and tool building."""
+"""Tests for agentirc model filtering/provider mapping and tool building."""
 
 from __future__ import annotations
 
-from chatbot.models import _is_chat_model, provider_for_model, refresh_model_catalog
-from chatbot.tools import build_tools, tools_for_model
+from agentirc.models import _is_chat_model, provider_for_model, refresh_model_catalog
+from agentirc.tools import build_tools, tools_for_model
 
 
 class TestModelFiltering:
@@ -37,7 +37,7 @@ class TestModelFiltering:
                 "lmstudio": ["local-model"],
             }[provider]
 
-        monkeypatch.setattr("chatbot.models.fetch_models", fake_fetch)
+        monkeypatch.setattr("agentirc.models.fetch_models", fake_fetch)
         merged = refresh_model_catalog(
             configured_models={
                 "openai": ["gpt-5-mini"],

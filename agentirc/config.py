@@ -1,4 +1,4 @@
-"""Configuration for the AI chatbot layer."""
+"""Configuration for the AI agent layer."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def _parse_bool(value: str | None, default: bool = False) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class ChatConfig:
-    """AI chatbot configuration."""
+    """AI agent configuration."""
 
     irc: BotConfig
     models: dict[str, list[str]]
@@ -43,6 +43,8 @@ class ChatConfig:
     tools: list[str] = field(default_factory=lambda: ["web_search", "x_search", "code_interpreter"])
     admins: list[str] = field(default_factory=list)
     server_models: bool = True
+    web_search_country: str = ""
+    history_encryption_key: str = ""
 
     def make_default_prompt(self, *, verbose: bool = False) -> str:
         """Build the default system prompt for a new conversation."""
@@ -91,20 +93,22 @@ class ChatConfig:
             },
             default_model=default_model,
             default_personality=os.environ.get(
-                "CHATBOT_DEFAULT_PERSONALITY",
-                os.environ.get("CHATBOT_PERSONALITY", _DEFAULT_PERSONALITY),
+                "AGENTIRC_DEFAULT_PERSONALITY",
+                os.environ.get("AGENTIRC_PERSONALITY", _DEFAULT_PERSONALITY),
             ).strip()
             or _DEFAULT_PERSONALITY,
-            prompt_prefix=os.environ.get("CHATBOT_PROMPT_PREFIX", _DEFAULT_PROMPT_PREFIX),
-            prompt_suffix=os.environ.get("CHATBOT_PROMPT_SUFFIX", _DEFAULT_PROMPT_SUFFIX),
-            prompt_suffix_extra=os.environ.get("CHATBOT_PROMPT_SUFFIX_EXTRA", _DEFAULT_PROMPT_SUFFIX_EXTRA),
-            default_system_prompt=os.environ.get("CHATBOT_SYSTEM_PROMPT", "").strip(),
-            max_tokens=int(os.environ.get("CHATBOT_MAX_TOKENS", "300")),
+            prompt_prefix=os.environ.get("AGENTIRC_PROMPT_PREFIX", _DEFAULT_PROMPT_PREFIX),
+            prompt_suffix=os.environ.get("AGENTIRC_PROMPT_SUFFIX", _DEFAULT_PROMPT_SUFFIX),
+            prompt_suffix_extra=os.environ.get("AGENTIRC_PROMPT_SUFFIX_EXTRA", _DEFAULT_PROMPT_SUFFIX_EXTRA),
+            default_system_prompt=os.environ.get("AGENTIRC_SYSTEM_PROMPT", "").strip(),
+            max_tokens=int(os.environ.get("AGENTIRC_MAX_TOKENS", "300")),
             tools=[
                 t.strip()
-                for t in os.environ.get("CHATBOT_TOOLS", "web_search,x_search,code_interpreter").split(",")
+                for t in os.environ.get("AGENTIRC_TOOLS", "web_search,x_search,code_interpreter").split(",")
                 if t.strip()
             ],
-            admins=[nick.lower() for nick in _parse_csv(os.environ.get("CHATBOT_ADMINS"))],
-            server_models=_parse_bool(os.environ.get("CHATBOT_SERVER_MODELS"), True),
+            admins=[nick.lower() for nick in _parse_csv(os.environ.get("AGENTIRC_ADMINS"))],
+            server_models=_parse_bool(os.environ.get("AGENTIRC_SERVER_MODELS"), True),
+            web_search_country=os.environ.get("WEB_SEARCH_COUNTRY", "").strip(),
+            history_encryption_key=os.environ.get("HISTORY_ENCRYPTION_KEY", "").strip(),
         )

@@ -1,12 +1,12 @@
-"""Tests for chatbot command behavior."""
+"""Tests for agentirc command behavior."""
 
 from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock
 
-from chatbot.bot import ChatBot
-from chatbot.config import ChatConfig
+from agentirc.bot import ChatBot
+from agentirc.config import ChatConfig
 from ircbot.config import BotConfig
 from ircbot.protocol import parse
 
@@ -66,35 +66,36 @@ class TestChatbotCommands:
 
     def test_mymodel_affects_provider_used_by_chat(self):
         chat = _make_bot()
-        chat.client.ask = AsyncMock(return_value=("ok", "resp_1"))
+        chat.client.ask_messages = AsyncMock(return_value=("ok", "resp_1"))
 
         _run(chat.bot._try_command(parse(":alice!u@h PRIVMSG #test :!mymodel grok-4")))
         _run(chat.bot._try_command(parse(":alice!u@h PRIVMSG #test :!chat hello")))
 
-        kwargs = chat.client.ask.await_args.kwargs
+        kwargs = chat.client.ask_messages.await_args.kwargs
         assert kwargs["model"] == "grok-4"
         assert kwargs["provider"] == "xai"
-        assert kwargs["enabled_tools"] == ["web_search", "x_search", "code_interpreter"]
 
     def test_tools_off_disables_tools_in_chat_requests(self):
         chat = _make_bot()
-        chat.client.ask = AsyncMock(return_value=("ok", "resp_1"))
+        chat.client.ask_messages = AsyncMock(return_value=("ok", "resp_1"))
 
         _run(chat.bot._try_command(parse(":admin!u@h PRIVMSG #test :!tools off")))
         _run(chat.bot._try_command(parse(":admin!u@h PRIVMSG #test :!chat hello")))
 
-        kwargs = chat.client.ask.await_args.kwargs
-        assert kwargs["enabled_tools"] == []
+        kwargs = chat.client.ask_messages.await_args.kwargs
+        assert kwargs["built_tools"] == []
 
     def test_stock_removes_system_prompt(self):
         chat = _make_bot()
-        chat.client.ask = AsyncMock(return_value=("ok", "resp_1"))
+        chat.client.ask_messages = AsyncMock(return_value=("ok", "resp_1"))
 
         _run(chat.bot._try_command(parse(":alice!u@h PRIVMSG #test :!stock")))
         _run(chat.bot._try_command(parse(":alice!u@h PRIVMSG #test :!chat hello")))
 
-        kwargs = chat.client.ask.await_args.kwargs
-        assert kwargs["system_prompt"] is None
+        call_args = chat.client.ask_messages.await_args
+        messages = list(call_args.args[0])
+        # Stock mode: no system message
+        assert not any(m["role"] == "system" for m in messages)
 
     def test_clear_resets_global_model(self):
         chat = _make_bot()

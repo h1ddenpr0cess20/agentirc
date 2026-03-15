@@ -196,6 +196,8 @@ class ResponsesClient:
             for key, value in options.items():
                 if value is not None:
                     payload[key] = value
+        payload["store"] = False
+
         if provider_name == "xai" and any(
             isinstance(tool, dict) and tool.get("type") in {"web_search", "x_search"}
             for tool in (tools or [])
@@ -241,7 +243,7 @@ class ResponsesClient:
             model,
             len(tools or []),
         )
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
             response = await client.post(
                 f"{base_url}/responses",
                 headers=self._headers(provider_name, api_key),
@@ -295,6 +297,7 @@ class ResponsesClient:
         *,
         model: str | None = None,
         enabled_tools: list[str] | None = None,
+        built_tools: list[dict[str, Any]] | None = None,
         provider: str | None = None,
         api_base: str | None = None,
         api_key: str | None = None,
@@ -302,10 +305,13 @@ class ResponsesClient:
     ) -> tuple[str, str | None]:
         provider_name = provider or self.provider
         final_model = model or self.model
-        tools = build_tools(
-            self.enabled_tools if enabled_tools is None else enabled_tools,
-            provider=provider_name,
-        )
+        if built_tools is not None:
+            tools = built_tools
+        else:
+            tools = build_tools(
+                self.enabled_tools if enabled_tools is None else enabled_tools,
+                provider=provider_name,
+            )
         options = {}
         if max_tokens is not None:
             options["max_output_tokens"] = max_tokens
@@ -332,7 +338,7 @@ class ResponsesClient:
     ) -> list[str]:
         base_url = self._base_url(provider, api_base)
         log.info("api GET %s/models provider=%s", base_url, provider)
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
             response = await client.get(
                 f"{base_url}/models",
                 headers=self._headers(provider, api_key),

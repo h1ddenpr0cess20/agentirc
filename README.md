@@ -1,91 +1,61 @@
-# ircbot
+# agentirc
 
-A minimal async IRC bot framework written in pure Python stdlib. No dependencies.
+An AI-powered IRC agent built on a minimal async IRC bot framework. Supports multiple LLM providers (OpenAI, xAI, LM Studio) with per-user conversation history, tool use, and encrypted persistence.
 
 ## Table of Contents
 
 - [Quick Start](#quick-start)
-- [Built-in Commands](#built-in-commands)
-- [Adding a Command](#adding-a-command)
-- [Subclassing the Bot](#subclassing-the-bot)
+- [Commands](#commands)
 - [Documentation](#documentation)
 - [License](#license)
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/youruser/ircbot.git
-cd ircbot
+git clone <repo-url>
+cd agentirc
 cp .env.example .env
-# Edit .env with your server, nick, and channels
-python -m ircbot
+# Edit .env with your IRC server, nick, and at least one API provider
+python -m agentirc
 ```
 
-Info-level logs include startup, connection lifecycle, resolved bot commands, and outbound API calls. Pass `--debug` to also log raw IRC traffic and lower-level IRC event chatter.
+> **Requirements:** Python 3.10+, `httpx`, and optionally `cryptography` for encrypted history persistence.
 
-> **Requirements:** Python 3.10 or later. No third-party packages needed.
+## Commands
 
-## Built-in Commands
+### User Commands
 
-| Command       | Aliases | Description                        |
-|---------------|---------|------------------------------------|
-| `!ping`       |         | Bot replies with `pong!`           |
-| `!time`       |         | Bot replies with the current UTC time |
-| `!help`       | `!h`    | Lists all commands                 |
-| `!help <cmd>` | `!h`    | Shows help text for one command    |
+| Command | Aliases | Description |
+|---|---|---|
+| `!ai <message>` | `!chat`, `!ask` | Talk to the AI |
+| `!persona <text>` | | Set a persona and reintroduce |
+| `!custom <prompt>` | | Set a custom system prompt |
+| `!reset` | | Reset conversation to defaults |
+| `!stock` | | Reset conversation with no system prompt |
+| `!mymodel [name]` | | Show or set your model |
+| `!location <place>` | | Set your location for contextual answers |
+| `!x <nick> <message>` | | Talk as another user |
 
-The command prefix defaults to `!` and is configurable via `IRC_CMD_PREFIX`.
+### Admin Commands
 
-## Adding a Command
+| Command | Description |
+|---|---|
+| `!model [name\|reset]` | Show/set global default model |
+| `!tools [on\|off\|toggle\|status]` | Enable/disable tool use |
+| `!verbose [on\|off\|toggle]` | Toggle verbose mode |
+| `!clear` | Clear all conversation state |
+| `!country [on\|off\|status]` | Toggle search country filtering |
+| `!join <#channel>` | Join a channel |
+| `!part [#channel] [reason]` | Leave a channel |
 
-Register a command on a bot instance with the `@bot.command` decorator:
-
-```python
-from ircbot import IRCBot, BotConfig, load_env
-from ircbot.commands import register_builtins
-
-load_env()
-config = BotConfig.from_env()
-bot = IRCBot(config)
-register_builtins(bot)
-
-@bot.command("greet", help="Say hello to someone", aliases=["hi"])
-async def greet(bot, msg, args):
-    name = args.strip() or msg.nick
-    await bot.reply(msg, f"Hello, {name}!")
-
-import asyncio
-asyncio.run(bot.run())
-```
-
-The handler signature is always `async def handler(bot: IRCBot, msg: IRCMessage, args: str) -> None`. `args` is the text after the command name, stripped.
-
-## Subclassing the Bot
-
-Override event hooks to react to IRC events beyond commands:
-
-```python
-from ircbot import IRCBot, BotConfig, load_env
-from ircbot.protocol import IRCMessage
-
-class MyBot(IRCBot):
-    async def on_join(self, msg: IRCMessage) -> None:
-        if msg.nick != self.nick:
-            await self.privmsg(msg.target, f"Welcome, {msg.nick}!")
-
-load_env()
-asyncio.run(MyBot(BotConfig.from_env()).run())
-```
-
-See [docs/extending.md](docs/extending.md) for all available hooks and the `on_raw_*` pattern.
+Built-in IRC commands (`!ping`, `!time`, `!help`) are also available.
 
 ## Documentation
 
-Full documentation lives in the [docs/](docs/) folder:
-
-- [docs/configuration.md](docs/configuration.md) — all environment variables, types, and defaults
-- [docs/commands.md](docs/commands.md) — command registry, decorator API, aliases, help text
-- [docs/extending.md](docs/extending.md) — subclassing IRCBot, event hooks, on_raw_* pattern
+- [docs/configuration.md](docs/configuration.md) -- IRC and AI provider configuration
+- [docs/commands.md](docs/commands.md) -- command registry and decorator API
+- [docs/extending.md](docs/extending.md) -- subclassing IRCBot, event hooks
+- [docs/ai-agent.md](docs/ai-agent.md) -- AI agent architecture, providers, tools, and history
 
 ## License
 

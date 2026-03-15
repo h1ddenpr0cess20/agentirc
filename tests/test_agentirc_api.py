@@ -1,12 +1,12 @@
-"""Tests for chatbot API/model helpers."""
+"""Tests for agentirc API/model helpers."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 
-from chatbot.api import ResponsesClient
-from chatbot.models import pick_model
+from agentirc.api import ResponsesClient
+from agentirc.models import pick_model
 
 
 def _client(api_base: str = "https://api.openai.com") -> ResponsesClient:
@@ -114,8 +114,8 @@ class TestResponsesClient:
                 assert url == "https://api.openai.com/v1/responses"
                 return FakeResponse()
 
-        monkeypatch.setattr("chatbot.api.httpx.AsyncClient", FakeClient)
-        with caplog.at_level(logging.INFO, logger="chatbot.api"):
+        monkeypatch.setattr("agentirc.api.httpx.AsyncClient", FakeClient)
+        with caplog.at_level(logging.INFO, logger="agentirc.api"):
             asyncio.run(_client().create_response(
                 model="gpt-5-mini",
                 messages=[{"role": "user", "content": "hello"}],
@@ -148,7 +148,7 @@ class TestResponsesClient:
                 del url, headers
                 return FakeResponse()
 
-        monkeypatch.setattr("chatbot.api.httpx.AsyncClient", FakeClient)
+        monkeypatch.setattr("agentirc.api.httpx.AsyncClient", FakeClient)
         models = asyncio.run(_client().list_models("xai", api_base="https://api.x.ai/v1", api_key="X"))
         assert models == ["provider-specific-model-a"]
 
@@ -176,8 +176,8 @@ class TestResponsesClient:
                 assert url == "https://api.x.ai/v1/models"
                 return FakeResponse()
 
-        monkeypatch.setattr("chatbot.api.httpx.AsyncClient", FakeClient)
-        with caplog.at_level(logging.INFO, logger="chatbot.api"):
+        monkeypatch.setattr("agentirc.api.httpx.AsyncClient", FakeClient)
+        with caplog.at_level(logging.INFO, logger="agentirc.api"):
             asyncio.run(_client().list_models("xai", api_base="https://api.x.ai/v1", api_key="X"))
 
         assert [record.getMessage() for record in caplog.records] == [
@@ -187,5 +187,5 @@ class TestResponsesClient:
 
 class TestPickModel:
     def test_pick_model_uses_preferred_when_listing_fails(self, monkeypatch):
-        monkeypatch.setattr("chatbot.models.fetch_models", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr("agentirc.models.fetch_models", lambda *_args, **_kwargs: [])
         assert pick_model("https://api.openai.com", preferred="gpt-5-mini") == "gpt-5-mini"

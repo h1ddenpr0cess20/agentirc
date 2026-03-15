@@ -1,4 +1,4 @@
-"""chatbot -- AI-powered IRC chatbot using OpenAI-compatible Responses APIs."""
+"""agentirc -- AI-powered IRC agent using OpenAI-compatible Responses APIs."""
 
 from .bot import ChatBot
 from .config import ChatConfig
