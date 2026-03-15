@@ -5,6 +5,7 @@ An AI-powered IRC agent built on a minimal async IRC bot framework. Supports mul
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [CLI Options](#cli-options)
 - [Commands](#commands)
 - [Documentation](#documentation)
 - [License](#license)
@@ -16,10 +17,39 @@ git clone <repo-url>
 cd agentirc
 cp .env.example .env
 # Edit .env with your IRC server, nick, and at least one API provider
-python -m agentirc
+pip install .
+agentirc
+```
+
+Or with Docker:
+
+```bash
+cp .env.example .env
+# Edit .env
+docker compose up -d
 ```
 
 > **Requirements:** Python 3.10+, `httpx`, and optionally `cryptography` for encrypted history persistence.
+
+## CLI Options
+
+```
+agentirc [options]
+```
+
+| Flag | Description |
+|---|---|
+| `--env-file PATH` | Path to .env file (default: `.env`) |
+| `--debug` | Enable debug logging |
+| `--host HOST` | IRC server hostname (overrides `IRC_HOST`) |
+| `--port PORT` | IRC server port (overrides `IRC_PORT`) |
+| `--nick NICK` | Bot nickname (overrides `IRC_NICK`) |
+| `--channels CHANS` | Comma-separated channels (overrides `IRC_CHANNELS`) |
+| `--tls` | Connect with TLS (overrides `IRC_USE_TLS`) |
+| `--model MODEL` | Default model (overrides `DEFAULT_MODEL`) |
+| `--generate-key` | Generate a Fernet encryption key and exit |
+
+CLI flags override their corresponding environment variables.
 
 ## Commands
 

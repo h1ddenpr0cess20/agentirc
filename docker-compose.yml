@@ -1,0 +1,10 @@
+services:
+  agentirc:
+    build: .
+    env_file: .env
+    volumes:
+      - history:/app
+    restart: unless-stopped
+
+volumes:
+  history:

@@ -11,7 +11,7 @@ agentirc/
   bot.py        -- ChatBot (wraps IRCBot with AI commands)
   api.py        -- ResponsesClient (HTTP client for Responses APIs)
   models.py     -- model discovery and provider resolution
-  tools.py      -- tool definitions (web_search, x_search, code_interpreter)
+  tools.py      -- tool definitions (web_search, x_search, code_interpreter, mcp)
   history.py    -- per-user conversation history with optional encryption
 ```
 
