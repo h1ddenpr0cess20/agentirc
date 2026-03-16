@@ -33,3 +33,6 @@ agentirc = "agentirc.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ircbot", "agentirc"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"agentirc/.env.example" = "agentirc/.env.example"

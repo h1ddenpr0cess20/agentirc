@@ -12,6 +12,11 @@ from .bot import ChatBot
 def main() -> None:
     parser = argparse.ArgumentParser(description="AI-powered IRC agent")
     parser.add_argument(
+        "--init",
+        action="store_true",
+        help="Write a starter .env file to the current directory and exit",
+    )
+    parser.add_argument(
         "--generate-key",
         action="store_true",
         help="Generate a Fernet encryption key for history persistence and exit",
@@ -60,6 +65,18 @@ def main() -> None:
         help="Default model (overrides DEFAULT_MODEL)",
     )
     args = parser.parse_args()
+
+    if args.init:
+        from importlib.resources import files
+        dest = os.path.join(os.getcwd(), ".env")
+        if os.path.exists(dest):
+            print(f"{dest} already exists, not overwriting.")
+            return
+        content = files("agentirc").joinpath(".env.example").read_text()
+        with open(dest, "w") as f:
+            f.write(content)
+        print(f"Wrote starter config to {dest}")
+        return
 
     if args.generate_key:
         from cryptography.fernet import Fernet
