@@ -9,9 +9,22 @@ description = "AI-powered IRC agent with multi-provider LLM support"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
+keywords = ["irc", "bot", "ai", "llm", "chatbot", "agent", "openai", "ollama"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Chat",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "httpx>=0.27",
 ]
+
+[project.urls]
+Homepage = "https://github.com/h1ddenpr0cess20/agentirc"
+Repository = "https://github.com/h1ddenpr0cess20/agentirc"
+Issues = "https://github.com/h1ddenpr0cess20/agentirc/issues"
 
 [project.optional-dependencies]
 crypto = ["cryptography>=43"]
