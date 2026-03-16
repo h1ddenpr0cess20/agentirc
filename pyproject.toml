@@ -12,8 +12,7 @@ requires-python = ">=3.10"
 keywords = ["irc", "bot", "ai", "llm", "chatbot", "agent", "openai", "ollama"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
+"Programming Language :: Python :: 3",
     "Topic :: Communications :: Chat",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
