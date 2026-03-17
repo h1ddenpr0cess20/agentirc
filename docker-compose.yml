@@ -2,6 +2,7 @@ services:
   agentirc:
     build: .
     env_file: .env
+    network_mode: host
     volumes:
       - history:/app
     restart: unless-stopped
