@@ -18,10 +18,10 @@ Build manually without Compose:
 docker build -t agentirc .
 ```
 
-Then run it:
+Then run it with `--network host` so it can reach any local services on the host:
 
 ```bash
-docker run -d --env-file .env --name agentirc agentirc
+docker run -d --env-file .env --network host --name agentirc agentirc
 ```
 
 ## docker-compose.yml
@@ -31,6 +31,7 @@ services:
   agentirc:
     build: .
     env_file: .env
+    network_mode: host
     volumes:
       - history:/app
     restart: unless-stopped
@@ -43,6 +44,7 @@ volumes:
 |---|---|
 | `build: .` | Builds from the `Dockerfile` in the repo root |
 | `env_file: .env` | Loads all configuration from your `.env` file |
+| `network_mode: host` | Shares the host's network stack so localhost URLs work directly |
 | `volumes: history:/app` | Persists conversation history across restarts |
 | `restart: unless-stopped` | Auto-restarts the bot unless you explicitly stop it |
 
@@ -71,7 +73,7 @@ docker compose restart
 Override the default command to pass CLI flags:
 
 ```bash
-docker run --env-file .env agentirc agentirc --debug --tls
+docker run --env-file .env --network host agentirc agentirc --debug --tls
 ```
 
 Or in `docker-compose.yml`:
@@ -81,6 +83,7 @@ services:
   agentirc:
     build: .
     env_file: .env
+    network_mode: host
     command: ["agentirc", "--debug", "--tls"]
 ```
 
