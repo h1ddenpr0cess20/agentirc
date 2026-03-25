@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 log = logging.getLogger(__name__)
 
-KNOWN_PROVIDERS = ("openai", "xai", "lmstudio")
+KNOWN_PROVIDERS = ("xai", "lmstudio")
 
 
 def _models_url(api_base: str) -> str:
@@ -34,25 +33,7 @@ def _is_chat_model(provider: str, model_id: str) -> bool:
         blocked_fragments = ("imagine", "image", "video", "voice", "vision")
         return not any(fragment in lowered for fragment in blocked_fragments)
 
-    prefixes = ("gpt-", "o1", "o3", "o4")
-    if not model_id.startswith(prefixes):
-        return False
-
-    blocked_fragments = (
-        "preview",
-        "audio",
-        "computer-use",
-        "transcribe",
-        "tts",
-        "image",
-    )
-    if any(fragment in lowered for fragment in blocked_fragments):
-        return False
-
-    if re.search(r"-\d{4}-\d{2}-\d{2}$", lowered):
-        return False
-
-    return True
+    return False
 
 
 def provider_for_model(model: str, models: dict[str, list[str]]) -> str | None:
@@ -67,12 +48,10 @@ def provider_for_model(model: str, models: dict[str, list[str]]) -> str | None:
     lowered = selected.lower()
     if lowered.startswith("grok-"):
         return "xai"
-    if lowered.startswith(("gpt-", "o1", "o3", "o4")):
-        return "openai"
     return None
 
 
-def fetch_models(api_base: str, api_key: str = "", provider: str = "openai") -> list[str]:
+def fetch_models(api_base: str, api_key: str = "", provider: str = "xai") -> list[str]:
     """GET models and return filtered chat-capable model IDs."""
     url = _models_url(api_base)
     req = Request(url, method="GET")
@@ -137,7 +116,7 @@ def pick_default_model(models: dict[str, list[str]], preferred: str = "") -> str
     raise RuntimeError("No models available from configured providers")
 
 
-def pick_model(api_base: str, api_key: str = "", preferred: str = "", provider: str = "openai") -> str:
+def pick_model(api_base: str, api_key: str = "", preferred: str = "", provider: str = "xai") -> str:
     """Legacy helper: pick a model from a single provider endpoint."""
     available = fetch_models(api_base, api_key, provider=provider)
 

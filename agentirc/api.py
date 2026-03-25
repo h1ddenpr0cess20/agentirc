@@ -1,10 +1,9 @@
-"""OpenAI-compatible Responses API client."""
+"""Responses API client."""
 
 from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any, Iterable
 
 import httpx
@@ -27,7 +26,7 @@ class ResponsesClient:
         system_prompt: str,
         max_tokens: int,
         enabled_tools: list[str],
-        provider: str = "openai",
+        provider: str = "xai",
     ) -> None:
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
@@ -41,9 +40,7 @@ class ResponsesClient:
     def _fallback_base_url(provider: str) -> str:
         if provider == "lmstudio":
             return "http://127.0.0.1:1234/v1"
-        if provider == "xai":
-            return "https://api.x.ai/v1"
-        return "https://api.openai.com/v1"
+        return "https://api.x.ai/v1"
 
     def _base_url(self, provider: str, api_base: str | None = None) -> str:
         configured = str(api_base or self.api_base or "").strip()
@@ -113,25 +110,7 @@ class ResponsesClient:
             blocked_fragments = ("imagine", "image", "video", "voice", "vision")
             return not any(fragment in lowered for fragment in blocked_fragments)
 
-        prefixes = ("gpt-", "o1", "o3", "o4")
-        if not model_id.startswith(prefixes):
-            return False
-
-        blocked_fragments = (
-            "preview",
-            "audio",
-            "computer-use",
-            "transcribe",
-            "tts",
-            "image",
-        )
-        if any(fragment in lowered for fragment in blocked_fragments):
-            return False
-
-        if re.search(r"-\d{4}-\d{2}-\d{2}$", lowered):
-            return False
-
-        return True
+        return False
 
     @staticmethod
     def build_input_items(

@@ -13,7 +13,7 @@ This document explains the limits of responsibility for the agentirc bot ("the A
 ## 2) Definitions
 
 - "App": This IRC chatbot and accompanying materials.
-- "LLMs/Providers": Third-party large language models and services (e.g., OpenAI, xAI, LM Studio, or any OpenAI-compatible endpoint) that you enable and supply credentials for.
+- "LLMs/Providers": Third-party large language models and services (e.g., xAI, LM Studio, or any compatible endpoint) that you enable and supply credentials for.
 - "Outputs": Any text generated or triggered by the models.
 - "You": Any user, administrator, or organization using or distributing the App.
 
