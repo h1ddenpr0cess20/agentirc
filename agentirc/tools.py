@@ -1,4 +1,4 @@
-"""Tool definitions for OpenAI-compatible Responses APIs."""
+"""Tool definitions for Responses APIs."""
 
 from __future__ import annotations
 
@@ -9,21 +9,21 @@ XAI_HOSTED_TOOL_TYPES = {"web_search", "x_search", "code_interpreter", "mcp"}
 
 def build_tools(
     enabled: list[str],
-    provider: str = "openai",
+    provider: str = "xai",
     *,
     web_search_country: str = "",
 ) -> list[dict[str, Any]]:
     """Build the tools list for the Responses API request.
 
     Supported tools:
-        - web_search (openai, xai)
+        - web_search (xai)
         - x_search (xai)
-        - code_interpreter (openai, xai)
+        - code_interpreter (xai)
     """
     tool_builders: dict[str, tuple[set[str], Any]] = {
-        "web_search": ({"openai", "xai"}, _web_search_tool),
+        "web_search": ({"xai"}, _web_search_tool),
         "x_search": ({"xai"}, _x_search_tool),
-        "code_interpreter": ({"openai", "xai"}, _code_interpreter_tool),
+        "code_interpreter": ({"xai"}, _code_interpreter_tool),
     }
 
     tools = []
@@ -61,11 +61,8 @@ def _x_search_tool(_provider: str) -> dict[str, Any]:
     return {"type": "x_search"}
 
 
-def _code_interpreter_tool(provider: str) -> dict[str, Any]:
-    tool = {"type": "code_interpreter"}
-    if provider == "openai":
-        tool["container"] = {"type": "auto"}
-    return tool
+def _code_interpreter_tool(_provider: str) -> dict[str, Any]:
+    return {"type": "code_interpreter"}
 
 
 def xai_model_supports_hosted_tools(model: str) -> bool:

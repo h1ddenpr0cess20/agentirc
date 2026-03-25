@@ -9,37 +9,22 @@ from agentirc.api import ResponsesClient
 from agentirc.models import pick_model
 
 
-def _client(api_base: str = "https://api.openai.com") -> ResponsesClient:
+def _client(api_base: str = "https://api.x.ai/v1") -> ResponsesClient:
     return ResponsesClient(
         api_base=api_base,
         api_key="",
-        model="gpt-5-mini",
+        model="grok-4-1-fast-non-reasoning",
         system_prompt="be concise",
         max_tokens=200,
         enabled_tools=[],
+        provider="xai",
     )
 
 
 class TestResponsesClient:
-    def test_base_url_with_plain_base(self):
-        client = _client("https://api.openai.com")
-        assert client._base_url("openai") == "https://api.openai.com/v1"
-
     def test_base_url_with_v1_base(self):
-        client = _client("https://api.openai.com/v1")
-        assert client._base_url("openai") == "https://api.openai.com/v1"
-
-    def test_build_request_payload_uses_responses_shape(self):
-        client = _client()
-        payload = client.build_request_payload(
-            model="gpt-5-mini",
-            messages=[
-                {"role": "system", "content": "be concise"},
-                {"role": "user", "content": "hello"},
-            ],
-        )
-        assert payload["instructions"] == "be concise"
-        assert payload["input"] == [{"role": "user", "content": "hello"}]
+        client = _client("https://api.x.ai/v1")
+        assert client._base_url("xai") == "https://api.x.ai/v1"
 
     def test_build_request_payload_xai_keeps_system_in_input(self):
         client = _client()
@@ -62,7 +47,7 @@ class TestResponsesClient:
     def test_build_request_payload_omits_instructions_with_previous_response(self):
         client = _client()
         payload = client.build_request_payload(
-            model="gpt-5-mini",
+            model="grok-4-1-fast-non-reasoning",
             messages=[
                 {"role": "system", "content": "be concise"},
                 {"role": "user", "content": "hello"},
@@ -111,18 +96,18 @@ class TestResponsesClient:
 
             async def post(self, url, headers=None, json=None):
                 del headers, json
-                assert url == "https://api.openai.com/v1/responses"
+                assert url == "https://api.x.ai/v1/responses"
                 return FakeResponse()
 
         monkeypatch.setattr("agentirc.api.httpx.AsyncClient", FakeClient)
         with caplog.at_level(logging.INFO, logger="agentirc.api"):
             asyncio.run(_client().create_response(
-                model="gpt-5-mini",
+                model="grok-4-1-fast-non-reasoning",
                 messages=[{"role": "user", "content": "hello"}],
             ))
 
         assert [record.getMessage() for record in caplog.records] == [
-            "api POST https://api.openai.com/v1/responses provider=openai model=gpt-5-mini tools=0"
+            "api POST https://api.x.ai/v1/responses provider=xai model=grok-4-1-fast-non-reasoning tools=0"
         ]
 
     def test_list_models_falls_back_to_unfiltered_when_filter_is_empty(self, monkeypatch):
@@ -188,4 +173,4 @@ class TestResponsesClient:
 class TestPickModel:
     def test_pick_model_uses_preferred_when_listing_fails(self, monkeypatch):
         monkeypatch.setattr("agentirc.models.fetch_models", lambda *_args, **_kwargs: [])
-        assert pick_model("https://api.openai.com", preferred="gpt-5-mini") == "gpt-5-mini"
+        assert pick_model("https://api.x.ai/v1", preferred="grok-4-1-fast-non-reasoning") == "grok-4-1-fast-non-reasoning"

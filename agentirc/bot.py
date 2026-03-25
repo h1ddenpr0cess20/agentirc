@@ -296,7 +296,7 @@ class ChatBot:
         configured = [p for p in KNOWN_PROVIDERS if self._base_url(p)]
         if len(configured) == 1:
             return configured[0]
-        return "openai"
+        return "xai"
 
     def _base_url(self, provider: str) -> str:
         return str(self.config.base_urls.get(provider, "") or "").strip()
@@ -324,8 +324,6 @@ class ChatBot:
     def _provider_label(provider: str) -> str:
         if provider == "xai":
             return "xAI"
-        if provider == "openai":
-            return "OpenAI"
         if provider == "lmstudio":
             return "LM Studio"
         return provider
