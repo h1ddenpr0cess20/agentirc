@@ -430,6 +430,7 @@ class ChatBot:
         for line in cleaned.splitlines():
             if line.strip():
                 await bot.reply(msg, line)
+                await asyncio.sleep(0.5)
 
     async def run(self) -> None:
         """Start the agent."""
