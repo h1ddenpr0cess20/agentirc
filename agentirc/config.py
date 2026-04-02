@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 
@@ -17,6 +18,18 @@ def _parse_csv(value: str | None) -> list[str]:
     if not value:
         return []
     return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _parse_mcp_servers(value: str | None) -> list[dict]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, ValueError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, dict)]
 
 
 def _parse_bool(value: str | None, default: bool = False) -> bool:
@@ -41,6 +54,7 @@ class ChatConfig:
     default_system_prompt: str = ""
     max_tokens: int = 300
     tools: list[str] = field(default_factory=lambda: ["web_search", "x_search", "code_interpreter"])
+    mcp_servers: list[dict] = field(default_factory=list)
     admins: list[str] = field(default_factory=list)
     server_models: bool = True
     web_search_country: str = ""
@@ -107,6 +121,7 @@ class ChatConfig:
                 for t in os.environ.get("AGENTIRC_TOOLS", "web_search,x_search,code_interpreter").split(",")
                 if t.strip()
             ],
+            mcp_servers=_parse_mcp_servers(os.environ.get("AGENTIRC_MCP_SERVERS")),
             admins=[nick.lower() for nick in _parse_csv(os.environ.get("AGENTIRC_ADMINS"))],
             server_models=_parse_bool(os.environ.get("AGENTIRC_SERVER_MODELS"), True),
             web_search_country=os.environ.get("WEB_SEARCH_COUNTRY", "").strip(),
