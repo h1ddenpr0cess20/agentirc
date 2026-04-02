@@ -409,7 +409,7 @@ class ChatBot:
 
         tool_names = tools_for_model(self.config.tools, provider, model) if self.tools_enabled else []
         country = self.config.web_search_country if self.search_country_enabled else ""
-        tools = build_tools(tool_names, provider, web_search_country=country)
+        tools = build_tools(tool_names, provider, web_search_country=country, mcp_servers=self.config.mcp_servers)
         try:
             reply, _response_id = await self.client.ask_messages(
                 messages,

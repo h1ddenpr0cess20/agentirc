@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentirc"
-version = "1.1.0"
+version = "1.1.1"
 description = "AI-powered IRC agent with multi-provider LLM support"
 readme = "README.md"
 license = "MIT"

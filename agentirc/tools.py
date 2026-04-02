@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-XAI_HOSTED_TOOL_TYPES = {"web_search", "x_search", "code_interpreter", "mcp"}
+XAI_HOSTED_TOOL_TYPES = {"web_search", "x_search", "code_interpreter"}
 
 
 def build_tools(
@@ -12,6 +12,7 @@ def build_tools(
     provider: str = "openai",
     *,
     web_search_country: str = "",
+    mcp_servers: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Build the tools list for the Responses API request.
 
@@ -19,6 +20,7 @@ def build_tools(
         - web_search (openai, xai)
         - x_search (xai)
         - code_interpreter (openai, xai)
+        - mcp (all providers)
     """
     tool_builders: dict[str, tuple[set[str], Any]] = {
         "web_search": ({"openai", "xai"}, _web_search_tool),
@@ -28,6 +30,10 @@ def build_tools(
 
     tools = []
     for name in enabled:
+        if name == "mcp":
+            for server in mcp_servers or []:
+                tools.append(_mcp_tool(server))
+            continue
         spec = tool_builders.get(name)
         if not spec:
             continue
@@ -59,6 +65,13 @@ def strip_search_country(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _x_search_tool(_provider: str) -> dict[str, Any]:
     return {"type": "x_search"}
+
+
+def _mcp_tool(server: dict[str, Any]) -> dict[str, Any]:
+    tool: dict[str, Any] = {"type": "mcp"}
+    tool.update(server)
+    tool.setdefault("require_approval", "never")
+    return tool
 
 
 def _code_interpreter_tool(provider: str) -> dict[str, Any]:
