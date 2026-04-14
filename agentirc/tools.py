@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-XAI_HOSTED_TOOL_TYPES = {"web_search", "x_search", "code_interpreter", "mcp"}
+XAI_HOSTED_TOOL_TYPES = {"web_search", "x_search", "code_interpreter"}
 
 
 def build_tools(
@@ -12,6 +12,7 @@ def build_tools(
     provider: str = "xai",
     *,
     web_search_country: str = "",
+    mcp_servers: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Build the tools list for the Responses API request.
 
@@ -28,6 +29,10 @@ def build_tools(
 
     tools = []
     for name in enabled:
+        if name == "mcp":
+            for server in mcp_servers or []:
+                tools.append(_mcp_tool(server))
+            continue
         spec = tool_builders.get(name)
         if not spec:
             continue
