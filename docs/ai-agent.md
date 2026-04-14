@@ -1,6 +1,6 @@
 # AI Agent
 
-The `agentirc` package extends the base `ircbot` framework with multi-provider AI chat capabilities via OpenAI-compatible Responses APIs.
+The `agentirc` package extends the base `ircbot` framework with multi-provider AI chat capabilities via Responses APIs.
 
 ## Architecture
 
@@ -19,11 +19,10 @@ agentirc/
 
 ## Providers
 
-Three providers are supported out of the box:
+Two providers are supported out of the box:
 
 | Provider | Env Prefix | API Base Default |
 |---|---|---|
-| OpenAI | `OPENAI_*` | `https://api.openai.com` |
 | xAI | `XAI_*` | `https://api.x.ai/v1` |
 | LM Studio | `LMSTUDIO_*` | `http://127.0.0.1:1234/v1` |
 
@@ -35,9 +34,6 @@ All agentirc-specific variables (in addition to the [IRC variables](configuratio
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_BASE` | `https://api.openai.com` | OpenAI API base URL |
-| `OPENAI_API_KEY` | | OpenAI API key |
-| `OPENAI_MODELS` | | Comma-separated model list |
 | `XAI_API_BASE` | `https://api.x.ai/v1` | xAI API base URL |
 | `XAI_API_KEY` | | xAI API key |
 | `XAI_MODELS` | | Comma-separated model list |
@@ -63,9 +59,9 @@ Tools are passed to the Responses API and executed server-side by the provider:
 
 | Tool | Providers | Description |
 |---|---|---|
-| `web_search` | OpenAI, xAI | Web search with optional country bias |
+| `web_search` | xAI | Web search with optional country bias |
 | `x_search` | xAI | Search X/Twitter posts |
-| `code_interpreter` | OpenAI, xAI | Execute code in a sandbox |
+| `code_interpreter` | xAI | Execute code in a sandbox |
 
 Tools are automatically filtered per-provider. xAI hosted tools (`web_search`, `x_search`, `code_interpreter`) require Grok 4+ models.
 

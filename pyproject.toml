@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentirc"
-version = "1.1.1"
+version = "1.2.0"
 description = "AI-powered IRC agent with multi-provider LLM support"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-keywords = ["irc", "bot", "ai", "llm", "chatbot", "agent", "openai", "ollama"]
+keywords = ["irc", "bot", "ai", "llm", "chatbot", "agent", "xai", "grok"]
 classifiers = [
     "Development Status :: 4 - Beta",
 "Programming Language :: Python :: 3",

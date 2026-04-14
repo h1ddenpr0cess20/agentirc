@@ -71,37 +71,27 @@ class ChatConfig:
     def from_env(cls) -> ChatConfig:
         """Build config from environment variables."""
         load_env()
-        openai_models = _parse_csv(os.environ.get("OPENAI_MODELS"))
         xai_models = _parse_csv(os.environ.get("XAI_MODELS"))
         lmstudio_models = _parse_csv(os.environ.get("LMSTUDIO_MODELS"))
-
-        legacy_openai_model = os.environ.get("OPENAI_MODEL", "").strip()
-        if legacy_openai_model and legacy_openai_model not in openai_models:
-            openai_models = [legacy_openai_model, *openai_models]
 
         default_model = os.environ.get("DEFAULT_MODEL", "").strip()
         if not default_model:
             default_model = (
-                legacy_openai_model
-                or (openai_models[0] if openai_models else "")
-                or (xai_models[0] if xai_models else "")
+                (xai_models[0] if xai_models else "")
                 or (lmstudio_models[0] if lmstudio_models else "")
             )
 
         return cls(
             irc=BotConfig.from_env(),
             models={
-                "openai": openai_models,
                 "xai": xai_models,
                 "lmstudio": lmstudio_models,
             },
             api_keys={
-                "openai": os.environ.get("OPENAI_API_KEY", "").strip(),
                 "xai": os.environ.get("XAI_API_KEY", "").strip(),
                 "lmstudio": os.environ.get("LMSTUDIO_API_KEY", "").strip(),
             },
             base_urls={
-                "openai": os.environ.get("OPENAI_API_BASE", "https://api.openai.com").strip(),
                 "xai": os.environ.get("XAI_API_BASE", "https://api.x.ai/v1").strip(),
                 "lmstudio": os.environ.get("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1").strip(),
             },
