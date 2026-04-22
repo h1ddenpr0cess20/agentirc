@@ -30,18 +30,21 @@ def _cfg(*, web_search_country: str = "") -> ChatConfig:
             command_prefix="!",
         ),
         models={
-            "xai": ["grok-4-1-fast-non-reasoning", "grok-4"],
+            "openai": ["gpt-5-mini"],
+            "xai": ["grok-4"],
             "lmstudio": ["local-model"],
         },
         api_keys={
+            "openai": "O",
             "xai": "X",
             "lmstudio": "",
         },
         base_urls={
+            "openai": "https://api.openai.com",
             "xai": "https://api.x.ai/v1",
             "lmstudio": "http://127.0.0.1:1234/v1",
         },
-        default_model="grok-4-1-fast-non-reasoning",
+        default_model="gpt-5-mini",
         tools=["web_search", "x_search", "code_interpreter"],
         admins=["admin"],
         server_models=False,
@@ -57,17 +60,17 @@ def _make_bot(**kwargs) -> ChatBot:
 
 class TestBuildToolsCountry:
     def test_web_search_includes_country(self):
-        tools = build_tools(["web_search"], "xai", web_search_country="US")
+        tools = build_tools(["web_search"], "openai", web_search_country="US")
         ws = [t for t in tools if t["type"] == "web_search"][0]
         assert ws["user_location"]["country"] == "US"
 
     def test_web_search_no_country(self):
-        tools = build_tools(["web_search"], "xai", web_search_country="")
+        tools = build_tools(["web_search"], "openai", web_search_country="")
         ws = [t for t in tools if t["type"] == "web_search"][0]
         assert "user_location" not in ws
 
     def test_strip_search_country(self):
-        tools = build_tools(["web_search"], "xai", web_search_country="GB")
+        tools = build_tools(["web_search"], "openai", web_search_country="GB")
         stripped = strip_search_country(tools)
         assert "user_location" not in stripped[0]
 
@@ -151,16 +154,15 @@ class TestStoreDisabled:
     def test_store_false_in_payload(self):
         from agentirc.api import ResponsesClient
         client = ResponsesClient(
-            api_base="https://api.x.ai/v1",
+            api_base="https://api.openai.com",
             api_key="test",
-            model="grok-4-1-fast-non-reasoning",
+            model="gpt-5-mini",
             system_prompt="test",
             max_tokens=100,
             enabled_tools=[],
-            provider="xai",
         )
         payload = client.build_request_payload(
-            model="grok-4-1-fast-non-reasoning",
+            model="gpt-5-mini",
             messages=[{"role": "user", "content": "hi"}],
         )
         assert payload["store"] is False

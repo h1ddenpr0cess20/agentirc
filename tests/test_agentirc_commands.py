@@ -29,18 +29,21 @@ def _cfg() -> ChatConfig:
             command_prefix="!",
         ),
         models={
-            "xai": ["grok-4-1-fast-non-reasoning", "grok-4"],
+            "openai": ["gpt-5-mini"],
+            "xai": ["grok-4"],
             "lmstudio": ["local-model"],
         },
         api_keys={
+            "openai": "O",
             "xai": "X",
             "lmstudio": "",
         },
         base_urls={
+            "openai": "https://api.openai.com",
             "xai": "https://api.x.ai/v1",
             "lmstudio": "http://127.0.0.1:1234/v1",
         },
-        default_model="grok-4-1-fast-non-reasoning",
+        default_model="gpt-5-mini",
         tools=["web_search", "x_search", "code_interpreter"],
         admins=["admin"],
         server_models=False,
@@ -101,3 +104,4 @@ class TestChatbotCommands:
 
         _run(chat.bot._try_command(parse(":admin!u@h PRIVMSG #test :!clear")))
         assert chat.model == chat.default_model
+
