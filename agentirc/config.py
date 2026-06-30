@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 
 from ircbot.config import BotConfig, load_env
+
+log = logging.getLogger(__name__)
 
 _DEFAULT_PERSONALITY = "a helpful IRC chatbot"
 _DEFAULT_PROMPT_PREFIX = "You are "
@@ -26,8 +29,10 @@ def _parse_mcp_servers(value: str | None) -> list[dict]:
     try:
         parsed = json.loads(value)
     except (json.JSONDecodeError, ValueError):
+        log.warning("AGENTIRC_MCP_SERVERS is not valid JSON; ignoring it")
         return []
     if not isinstance(parsed, list):
+        log.warning("AGENTIRC_MCP_SERVERS must be a JSON list; ignoring it")
         return []
     return [item for item in parsed if isinstance(item, dict)]
 
@@ -60,38 +65,41 @@ class ChatConfig:
     web_search_country: str = ""
     history_encryption_key: str = ""
 
-    def make_default_prompt(self, *, verbose: bool = False) -> str:
-        """Build the default system prompt for a new conversation."""
-        if self.default_system_prompt:
-            return self.default_system_prompt.strip()
-        extra = "" if verbose else self.prompt_suffix_extra
-        return f"{self.prompt_prefix}{self.default_personality}{self.prompt_suffix}{extra}".strip()
-
     @classmethod
     def from_env(cls) -> ChatConfig:
         """Build config from environment variables."""
         load_env()
+        openai_models = _parse_csv(os.environ.get("OPENAI_MODELS"))
         xai_models = _parse_csv(os.environ.get("XAI_MODELS"))
         lmstudio_models = _parse_csv(os.environ.get("LMSTUDIO_MODELS"))
+
+        legacy_openai_model = os.environ.get("OPENAI_MODEL", "").strip()
+        if legacy_openai_model and legacy_openai_model not in openai_models:
+            openai_models = [legacy_openai_model, *openai_models]
 
         default_model = os.environ.get("DEFAULT_MODEL", "").strip()
         if not default_model:
             default_model = (
-                (xai_models[0] if xai_models else "")
+                legacy_openai_model
+                or (openai_models[0] if openai_models else "")
+                or (xai_models[0] if xai_models else "")
                 or (lmstudio_models[0] if lmstudio_models else "")
             )
 
         return cls(
             irc=BotConfig.from_env(),
             models={
+                "openai": openai_models,
                 "xai": xai_models,
                 "lmstudio": lmstudio_models,
             },
             api_keys={
+                "openai": os.environ.get("OPENAI_API_KEY", "").strip(),
                 "xai": os.environ.get("XAI_API_KEY", "").strip(),
                 "lmstudio": os.environ.get("LMSTUDIO_API_KEY", "").strip(),
             },
             base_urls={
+                "openai": os.environ.get("OPENAI_API_BASE", "https://api.openai.com").strip(),
                 "xai": os.environ.get("XAI_API_BASE", "https://api.x.ai/v1").strip(),
                 "lmstudio": os.environ.get("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1").strip(),
             },

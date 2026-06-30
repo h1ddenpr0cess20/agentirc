@@ -1,9 +1,10 @@
-"""Responses API client."""
+"""OpenAI-compatible Responses API client."""
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Iterable
 
 import httpx
@@ -26,7 +27,7 @@ class ResponsesClient:
         system_prompt: str,
         max_tokens: int,
         enabled_tools: list[str],
-        provider: str = "xai",
+        provider: str = "openai",
     ) -> None:
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
@@ -40,7 +41,9 @@ class ResponsesClient:
     def _fallback_base_url(provider: str) -> str:
         if provider == "lmstudio":
             return "http://127.0.0.1:1234/v1"
-        return "https://api.x.ai/v1"
+        if provider == "xai":
+            return "https://api.x.ai/v1"
+        return "https://api.openai.com/v1"
 
     def _base_url(self, provider: str, api_base: str | None = None) -> str:
         configured = str(api_base or self.api_base or "").strip()
@@ -55,6 +58,22 @@ class ResponsesClient:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         return headers
+
+    @staticmethod
+    def _raise_for_status(response: httpx.Response) -> None:
+        """Raise for HTTP errors, logging the provider's error body first.
+
+        ``raise_for_status`` alone discards the response body, which is where
+        providers put the actionable detail (unknown model, context-length
+        exceeded, invalid tool, auth failure).
+        """
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            body = (response.text or "").strip()
+            if body:
+                log.error("api error %s: %s", response.status_code, body[:1000])
+            raise
 
     @staticmethod
     def _supports_instructions(provider: str) -> bool:
@@ -110,7 +129,25 @@ class ResponsesClient:
             blocked_fragments = ("imagine", "image", "video", "voice", "vision")
             return not any(fragment in lowered for fragment in blocked_fragments)
 
-        return False
+        prefixes = ("gpt-", "o1", "o3", "o4")
+        if not model_id.startswith(prefixes):
+            return False
+
+        blocked_fragments = (
+            "preview",
+            "audio",
+            "computer-use",
+            "transcribe",
+            "tts",
+            "image",
+        )
+        if any(fragment in lowered for fragment in blocked_fragments):
+            return False
+
+        if re.search(r"-\d{4}-\d{2}-\d{2}$", lowered):
+            return False
+
+        return True
 
     @staticmethod
     def build_input_items(
@@ -202,6 +239,7 @@ class ResponsesClient:
         api_base: str | None = None,
         api_key: str | None = None,
     ) -> dict[str, Any]:
+        """POST a built payload to ``/responses`` and return the decoded JSON."""
         provider_name = provider or self.provider
         base_url = self._base_url(provider_name, api_base)
         payload = self.build_request_payload(
@@ -228,7 +266,7 @@ class ResponsesClient:
                 headers=self._headers(provider_name, api_key),
                 json=payload,
             )
-            response.raise_for_status()
+            self._raise_for_status(response)
             return response.json()
 
     async def ask(
@@ -244,6 +282,11 @@ class ResponsesClient:
         api_key: str | None = None,
         max_tokens: int | None = None,
     ) -> tuple[str, str | None]:
+        """Single-turn helper: send one system+user exchange.
+
+        Returns ``(text, response_id)``. For multi-turn conversations with
+        history use :meth:`ask_messages`.
+        """
         del max_tokens
         provider_name = provider or self.provider
         final_model = model or self.model
@@ -282,6 +325,11 @@ class ResponsesClient:
         api_key: str | None = None,
         max_tokens: int | None = None,
     ) -> tuple[str, str | None]:
+        """Send a full message history and return ``(text, response_id)``.
+
+        Tools may be supplied pre-built via *built_tools*, otherwise they are
+        constructed from *enabled_tools* (or the client default).
+        """
         provider_name = provider or self.provider
         final_model = model or self.model
         if built_tools is not None:
@@ -315,6 +363,10 @@ class ResponsesClient:
         api_base: str | None = None,
         api_key: str | None = None,
     ) -> list[str]:
+        """Fetch the provider's model IDs, filtered to chat-capable models.
+
+        Falls back to the unfiltered list when the filter removes everything.
+        """
         base_url = self._base_url(provider, api_base)
         log.info("api GET %s/models provider=%s", base_url, provider)
         async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
@@ -322,7 +374,7 @@ class ResponsesClient:
                 f"{base_url}/models",
                 headers=self._headers(provider, api_key),
             )
-            response.raise_for_status()
+            self._raise_for_status(response)
             payload = response.json()
         model_ids = [
             str(item.get("id") or "").strip()
@@ -339,10 +391,16 @@ class ResponsesClient:
             if item.get("type") != "message":
                 continue
             for content in item.get("content", []) or []:
-                if content.get("type") == "output_text":
+                ctype = content.get("type")
+                if ctype == "output_text":
                     text = str(content.get("text") or "")
-                    if text:
-                        parts.append(text)
+                elif ctype == "refusal":
+                    # OpenAI returns refusals as a distinct content part.
+                    text = str(content.get("refusal") or "")
+                else:
+                    continue
+                if text:
+                    parts.append(text)
         if parts:
             return "\n".join(parts).strip()
         return str(response.get("output_text") or "").strip() or "(no response)"

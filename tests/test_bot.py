@@ -288,6 +288,17 @@ class TestEventDispatch:
         assert bot.nick == "mybot_"
         bot.conn.send.assert_called_with("NICK mybot_")
 
+    def test_on_line_swallows_handler_errors(self):
+        # A failing handler must not escape _on_line and tear down the read
+        # loop; it should be logged and the bot keeps running.
+        bot = _bot()
+
+        async def boom(_msg):
+            raise ValueError("handler blew up")
+
+        bot.on_privmsg = boom
+        _run(bot._on_line(":alice!u@h PRIVMSG #test :hi"))  # must not raise
+
     def test_nick_collision_432_appends_underscore(self):
         bot = _bot(nick="mybot")
         msg = parse(":server 432 * mybot :Erroneous nickname")

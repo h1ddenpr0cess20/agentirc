@@ -1,6 +1,6 @@
 # agentirc
 
-An AI-powered IRC agent built on a minimal async IRC bot framework. Supports multiple LLM providers (xAI, LM Studio) with per-user conversation history, tool use, and encrypted persistence.
+An AI-powered IRC agent built on a minimal async IRC bot framework. Supports multiple LLM providers (OpenAI, xAI, LM Studio) with per-user conversation history, tool use, and encrypted persistence.
 
 ## Table of Contents
 
@@ -47,6 +47,7 @@ agentirc [options]
 | `--channels CHANS` | Comma-separated channels (overrides `IRC_CHANNELS`) |
 | `--tls` | Connect with TLS (overrides `IRC_USE_TLS`) |
 | `--model MODEL` | Default model (overrides `DEFAULT_MODEL`) |
+| `--init` | Write a starter `.env` to the current directory and exit |
 | `--generate-key` | Generate a Fernet encryption key and exit |
 
 CLI flags override their corresponding environment variables.

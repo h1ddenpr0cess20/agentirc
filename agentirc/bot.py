@@ -200,6 +200,7 @@ class ChatBot:
             else:
                 await bot.reply(msg, "Usage: !verbose [on|off|toggle]")
                 return
+            self.history.set_verbose(self.verbose)
             await bot.reply(msg, f"Verbose mode set to {'ON' if self.verbose else 'OFF'}")
 
         @self.bot.command("clear", help="Admin: clear all conversation state")
@@ -296,7 +297,7 @@ class ChatBot:
         configured = [p for p in KNOWN_PROVIDERS if self._base_url(p)]
         if len(configured) == 1:
             return configured[0]
-        return "xai"
+        return "openai"
 
     def _base_url(self, provider: str) -> str:
         return str(self.config.base_urls.get(provider, "") or "").strip()
@@ -324,6 +325,8 @@ class ChatBot:
     def _provider_label(provider: str) -> str:
         if provider == "xai":
             return "xAI"
+        if provider == "openai":
+            return "OpenAI"
         if provider == "lmstudio":
             return "LM Studio"
         return provider

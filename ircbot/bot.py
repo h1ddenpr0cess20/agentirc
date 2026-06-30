@@ -178,9 +178,19 @@ class IRCBot:
     # -- IRC line dispatch --
 
     async def _on_line(self, raw: str) -> None:
-        """Parse and dispatch a single IRC line."""
-        msg = protocol.parse(raw)
-        await self._dispatch(msg)
+        """Parse and dispatch a single IRC line.
+
+        Dispatch is guarded so that an unexpected error handling one line is
+        logged and skipped rather than escaping the read loop -- only genuine
+        connection failures (surfaced by the reader) should trigger a
+        reconnect. ``CancelledError`` is a ``BaseException`` and still
+        propagates, so shutdown is unaffected.
+        """
+        try:
+            msg = protocol.parse(raw)
+            await self._dispatch(msg)
+        except Exception:
+            log.exception("Error handling line: %s", raw)
 
     async def _dispatch(self, msg: protocol.IRCMessage) -> None:
         """Route a parsed message to the appropriate handler."""

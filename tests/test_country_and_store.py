@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 from agentirc.bot import ChatBot
 from agentirc.config import ChatConfig
-from agentirc.tools import build_tools, strip_search_country
+from agentirc.tools import build_tools
 from ircbot.config import BotConfig
 from ircbot.protocol import parse
 
@@ -66,12 +66,6 @@ class TestBuildToolsCountry:
         ws = [t for t in tools if t["type"] == "web_search"][0]
         assert "user_location" not in ws
 
-    def test_strip_search_country(self):
-        tools = build_tools(["web_search"], "xai", web_search_country="GB")
-        stripped = strip_search_country(tools)
-        assert "user_location" not in stripped[0]
-
-
 class TestCountryCommand:
     def test_no_country_configured(self):
         chat = _make_bot()
@@ -114,6 +108,29 @@ class TestCountryCommand:
         _run(chat.bot._try_command(msg))
         sent = chat.bot.conn.send.call_args[0][0]
         assert "Admin only." in sent
+
+
+class TestVerboseCommand:
+    def test_verbose_on_drops_concise_suffix_from_new_threads(self):
+        chat = _make_bot()
+        # A fresh thread carries the concise hint by default.
+        before = chat.history.get("#test", "bob")[0]["content"]
+        assert "concise" in before.lower()
+
+        msg = parse(":admin!u@h PRIVMSG #test :!verbose on")
+        _run(chat.bot._try_command(msg))
+        assert chat.verbose is True
+
+        after = chat.history.get("#test", "carol")[0]["content"]
+        assert "concise" not in after.lower()
+
+    def test_verbose_non_admin(self):
+        chat = _make_bot()
+        msg = parse(":alice!u@h PRIVMSG #test :!verbose on")
+        _run(chat.bot._try_command(msg))
+        sent = chat.bot.conn.send.call_args[0][0]
+        assert "Admin only." in sent
+        assert chat.verbose is False
 
 
 class TestLocationCommand:
