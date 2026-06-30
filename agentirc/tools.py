@@ -66,6 +66,13 @@ def _x_search_tool(_provider: str) -> dict[str, Any]:
     return {"type": "x_search"}
 
 
+def _mcp_tool(server: dict[str, Any]) -> dict[str, Any]:
+    tool: dict[str, Any] = {"type": "mcp"}
+    tool.update(server)
+    tool.setdefault("require_approval", "never")
+    return tool
+
+
 def _code_interpreter_tool(_provider: str) -> dict[str, Any]:
     return {"type": "code_interpreter"}
 

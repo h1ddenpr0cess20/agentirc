@@ -67,3 +67,15 @@ class TestTools:
     def test_lmstudio_tools(self):
         tools = build_tools(["web_search", "x_search", "code_interpreter"], provider="lmstudio")
         assert tools == []
+
+    def test_mcp_tools_built_from_servers(self):
+        servers = [{"server_label": "demo", "server_url": "https://example.com/mcp"}]
+        tools = build_tools(["mcp"], provider="xai", mcp_servers=servers)
+        assert tools == [
+            {
+                "type": "mcp",
+                "server_label": "demo",
+                "server_url": "https://example.com/mcp",
+                "require_approval": "never",
+            }
+        ]
