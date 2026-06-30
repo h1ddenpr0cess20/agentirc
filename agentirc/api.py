@@ -60,6 +60,22 @@ class ResponsesClient:
         return headers
 
     @staticmethod
+    def _raise_for_status(response: httpx.Response) -> None:
+        """Raise for HTTP errors, logging the provider's error body first.
+
+        ``raise_for_status`` alone discards the response body, which is where
+        providers put the actionable detail (unknown model, context-length
+        exceeded, invalid tool, auth failure).
+        """
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            body = (response.text or "").strip()
+            if body:
+                log.error("api error %s: %s", response.status_code, body[:1000])
+            raise
+
+    @staticmethod
     def _supports_instructions(provider: str) -> bool:
         return provider != "xai"
 
@@ -250,7 +266,7 @@ class ResponsesClient:
                 headers=self._headers(provider_name, api_key),
                 json=payload,
             )
-            response.raise_for_status()
+            self._raise_for_status(response)
             return response.json()
 
     async def ask(
@@ -358,7 +374,7 @@ class ResponsesClient:
                 f"{base_url}/models",
                 headers=self._headers(provider, api_key),
             )
-            response.raise_for_status()
+            self._raise_for_status(response)
             payload = response.json()
         model_ids = [
             str(item.get("id") or "").strip()
@@ -375,10 +391,16 @@ class ResponsesClient:
             if item.get("type") != "message":
                 continue
             for content in item.get("content", []) or []:
-                if content.get("type") == "output_text":
+                ctype = content.get("type")
+                if ctype == "output_text":
                     text = str(content.get("text") or "")
-                    if text:
-                        parts.append(text)
+                elif ctype == "refusal":
+                    # OpenAI returns refusals as a distinct content part.
+                    text = str(content.get("refusal") or "")
+                else:
+                    continue
+                if text:
+                    parts.append(text)
         if parts:
             return "\n".join(parts).strip()
         return str(response.get("output_text") or "").strip() or "(no response)"

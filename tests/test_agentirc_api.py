@@ -5,6 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import httpx
+import pytest
+
 from agentirc.api import ResponsesClient
 
 
@@ -77,6 +80,54 @@ class TestResponsesClient:
 
     def test_extract_text_falls_back_to_output_text(self):
         assert ResponsesClient._extract_text({"output_text": " hi "}) == "hi"
+
+    def test_extract_text_captures_refusal(self):
+        response = {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {"type": "refusal", "refusal": "I can't help with that."},
+                    ],
+                }
+            ],
+        }
+        assert ResponsesClient._extract_text(response) == "I can't help with that."
+
+    def test_create_response_logs_error_body_on_http_error(self, monkeypatch, caplog):
+        class FakeResponse:
+            status_code = 400
+            text = '{"error": {"message": "model not found"}}'
+
+            def raise_for_status(self):
+                raise httpx.HTTPStatusError("400", request=None, response=self)
+
+            def json(self):
+                return {}
+
+        class FakeClient:
+            def __init__(self, *args, **kwargs):
+                del args, kwargs
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                del exc_type, exc, tb
+                return False
+
+            async def post(self, url, headers=None, json=None):
+                del url, headers, json
+                return FakeResponse()
+
+        monkeypatch.setattr("agentirc.api.httpx.AsyncClient", FakeClient)
+        with caplog.at_level(logging.ERROR, logger="agentirc.api"):
+            with pytest.raises(httpx.HTTPStatusError):
+                asyncio.run(_client().create_response(
+                    model="grok-4-1-fast-non-reasoning",
+                    messages=[{"role": "user", "content": "hello"}],
+                ))
+        assert any("model not found" in r.getMessage() for r in caplog.records)
 
     def test_create_response_logs_api_call(self, monkeypatch, caplog):
         class FakeResponse:
