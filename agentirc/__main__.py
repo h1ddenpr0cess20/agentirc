@@ -107,7 +107,10 @@ def main() -> None:
 
     config = ChatConfig.from_env()
     bot = ChatBot(config)
-    asyncio.run(bot.run())
+    try:
+        asyncio.run(bot.run())
+    except KeyboardInterrupt:
+        logging.getLogger(__name__).info("Shutting down.")
 
 
 if __name__ == "__main__":

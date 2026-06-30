@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 
 from ircbot.config import BotConfig, load_env
+
+log = logging.getLogger(__name__)
 
 _DEFAULT_PERSONALITY = "a helpful IRC chatbot"
 _DEFAULT_PROMPT_PREFIX = "You are "
@@ -26,8 +29,10 @@ def _parse_mcp_servers(value: str | None) -> list[dict]:
     try:
         parsed = json.loads(value)
     except (json.JSONDecodeError, ValueError):
+        log.warning("AGENTIRC_MCP_SERVERS is not valid JSON; ignoring it")
         return []
     if not isinstance(parsed, list):
+        log.warning("AGENTIRC_MCP_SERVERS must be a JSON list; ignoring it")
         return []
     return [item for item in parsed if isinstance(item, dict)]
 
