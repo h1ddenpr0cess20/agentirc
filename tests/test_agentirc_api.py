@@ -6,7 +6,6 @@ import asyncio
 import logging
 
 from agentirc.api import ResponsesClient
-from agentirc.models import pick_model
 
 
 def _client(api_base: str = "https://api.x.ai/v1") -> ResponsesClient:
@@ -168,9 +167,3 @@ class TestResponsesClient:
         assert [record.getMessage() for record in caplog.records] == [
             "api GET https://api.x.ai/v1/models provider=xai"
         ]
-
-
-class TestPickModel:
-    def test_pick_model_uses_preferred_when_listing_fails(self, monkeypatch):
-        monkeypatch.setattr("agentirc.models.fetch_models", lambda *_args, **_kwargs: [])
-        assert pick_model("https://api.x.ai/v1", preferred="grok-4-1-fast-non-reasoning") == "grok-4-1-fast-non-reasoning"

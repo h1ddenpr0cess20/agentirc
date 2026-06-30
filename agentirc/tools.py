@@ -52,16 +52,6 @@ def _web_search_tool(_provider: str, *, country: str = "") -> dict[str, Any]:
     return tool
 
 
-def strip_search_country(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remove user_location from web_search tool dicts."""
-    result = []
-    for tool in tools:
-        if isinstance(tool, dict) and tool.get("type") == "web_search" and "user_location" in tool:
-            tool = {k: v for k, v in tool.items() if k != "user_location"}
-        result.append(tool)
-    return result
-
-
 def _x_search_tool(_provider: str) -> dict[str, Any]:
     return {"type": "x_search"}
 

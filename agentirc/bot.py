@@ -200,6 +200,7 @@ class ChatBot:
             else:
                 await bot.reply(msg, "Usage: !verbose [on|off|toggle]")
                 return
+            self.history.set_verbose(self.verbose)
             await bot.reply(msg, f"Verbose mode set to {'ON' if self.verbose else 'OFF'}")
 
         @self.bot.command("clear", help="Admin: clear all conversation state")

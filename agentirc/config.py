@@ -60,13 +60,6 @@ class ChatConfig:
     web_search_country: str = ""
     history_encryption_key: str = ""
 
-    def make_default_prompt(self, *, verbose: bool = False) -> str:
-        """Build the default system prompt for a new conversation."""
-        if self.default_system_prompt:
-            return self.default_system_prompt.strip()
-        extra = "" if verbose else self.prompt_suffix_extra
-        return f"{self.prompt_prefix}{self.default_personality}{self.prompt_suffix}{extra}".strip()
-
     @classmethod
     def from_env(cls) -> ChatConfig:
         """Build config from environment variables."""

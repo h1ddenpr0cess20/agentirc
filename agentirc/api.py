@@ -202,6 +202,7 @@ class ResponsesClient:
         api_base: str | None = None,
         api_key: str | None = None,
     ) -> dict[str, Any]:
+        """POST a built payload to ``/responses`` and return the decoded JSON."""
         provider_name = provider or self.provider
         base_url = self._base_url(provider_name, api_base)
         payload = self.build_request_payload(
@@ -244,6 +245,11 @@ class ResponsesClient:
         api_key: str | None = None,
         max_tokens: int | None = None,
     ) -> tuple[str, str | None]:
+        """Single-turn helper: send one system+user exchange.
+
+        Returns ``(text, response_id)``. For multi-turn conversations with
+        history use :meth:`ask_messages`.
+        """
         del max_tokens
         provider_name = provider or self.provider
         final_model = model or self.model
@@ -282,6 +288,11 @@ class ResponsesClient:
         api_key: str | None = None,
         max_tokens: int | None = None,
     ) -> tuple[str, str | None]:
+        """Send a full message history and return ``(text, response_id)``.
+
+        Tools may be supplied pre-built via *built_tools*, otherwise they are
+        constructed from *enabled_tools* (or the client default).
+        """
         provider_name = provider or self.provider
         final_model = model or self.model
         if built_tools is not None:
@@ -315,6 +326,10 @@ class ResponsesClient:
         api_base: str | None = None,
         api_key: str | None = None,
     ) -> list[str]:
+        """Fetch the provider's model IDs, filtered to chat-capable models.
+
+        Falls back to the unfiltered list when the filter removes everything.
+        """
         base_url = self._base_url(provider, api_base)
         log.info("api GET %s/models provider=%s", base_url, provider)
         async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:

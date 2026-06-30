@@ -44,7 +44,6 @@ class HistoryStore:
         self._include_extra = True
         self._messages: Dict[str, Dict[str, List[Dict[str, str]]]] = {}
         self._locations: Dict[str, str] = {}
-        self.user_models: Dict[str, Dict[str, str]] = {}
 
         # Encrypted persistence setup
         self._fernet = None
@@ -66,6 +65,12 @@ class HistoryStore:
         return self._messages
 
     def set_verbose(self, verbose: bool) -> None:
+        """Toggle the concise-response suffix on newly built system prompts.
+
+        When *verbose* is true the ``prompt_suffix_extra`` hint is omitted.
+        Already-stored conversations keep their existing system prompt; the
+        change takes effect for new threads and prompt resets.
+        """
         self._include_extra = not bool(verbose)
 
     def _full_suffix(self) -> str:
@@ -75,7 +80,10 @@ class HistoryStore:
     def _location_suffix(self, user: str) -> str:
         loc = self._locations.get(user, "")
         if loc:
-            return f" The user has indicated they are located in {loc}.  Use when needed, Do not adopt this as part of your personality."
+            return (
+                f" The user has indicated they are located in {loc}. "
+                "Use this when relevant, but do not adopt it as part of your personality."
+            )
         return ""
 
     def _system_for(self, room: str, user: str) -> str:
