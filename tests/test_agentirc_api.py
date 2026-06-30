@@ -25,6 +25,10 @@ class TestResponsesClient:
         client = _client("https://api.x.ai/v1")
         assert client._base_url("xai") == "https://api.x.ai/v1"
 
+    def test_base_url_appends_v1_for_openai_plain_base(self):
+        client = _client("https://api.openai.com")
+        assert client._base_url("openai") == "https://api.openai.com/v1"
+
     def test_build_request_payload_xai_keeps_system_in_input(self):
         client = _client()
         payload = client.build_request_payload(

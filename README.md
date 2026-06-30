@@ -1,6 +1,6 @@
 # agentirc
 
-An AI-powered IRC agent built on a minimal async IRC bot framework. Supports multiple LLM providers (xAI, LM Studio) with per-user conversation history, tool use, and encrypted persistence.
+An AI-powered IRC agent built on a minimal async IRC bot framework. Supports multiple LLM providers (OpenAI, xAI, LM Studio) with per-user conversation history, tool use, and encrypted persistence.
 
 ## Table of Contents
 

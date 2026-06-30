@@ -10,6 +10,13 @@ from agentirc.tools import build_tools, tools_for_model
 
 
 class TestModelFiltering:
+    def test_openai_chat_model_filter(self):
+        assert ResponsesClient._is_chat_model("openai", "gpt-5-mini") is True
+        assert ResponsesClient._is_chat_model("openai", "o3-pro") is True
+        assert ResponsesClient._is_chat_model("openai", "gpt-4.1-2025-04-14") is False
+        assert ResponsesClient._is_chat_model("openai", "gpt-4o-mini-tts") is False
+        assert ResponsesClient._is_chat_model("openai", "computer-use-preview") is False
+
     def test_xai_chat_model_filter(self):
         assert ResponsesClient._is_chat_model("xai", "grok-4") is True
         assert ResponsesClient._is_chat_model("xai", "grok-3-mini") is True
@@ -17,11 +24,13 @@ class TestModelFiltering:
 
     def test_provider_for_model_uses_list_and_heuristics(self):
         models = {
+            "openai": ["gpt-5-mini"],
             "xai": ["grok-4"],
             "lmstudio": ["local-model"],
         }
         assert provider_for_model("local-model", models) == "lmstudio"
         assert provider_for_model("grok-4-fast-reasoning", models) == "xai"
+        assert provider_for_model("o4-mini", models) == "openai"
         assert provider_for_model("unknown-model", models) is None
 
     def test_pick_default_model_prefers_explicit_then_catalog(self):
@@ -33,6 +42,13 @@ class TestModelFiltering:
 
 
 class TestTools:
+    def test_openai_tools(self):
+        tools = build_tools(["web_search", "x_search", "code_interpreter"], provider="openai")
+        assert tools == [
+            {"type": "web_search"},
+            {"type": "code_interpreter", "container": {"type": "auto"}},
+        ]
+
     def test_xai_tools(self):
         tools = build_tools(["web_search", "x_search", "code_interpreter"], provider="xai")
         assert tools == [

@@ -11,7 +11,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-KNOWN_PROVIDERS = ("xai", "lmstudio")
+KNOWN_PROVIDERS = ("openai", "xai", "lmstudio")
 
 
 def provider_for_model(model: str, models: dict[str, list[str]]) -> str | None:
@@ -31,6 +31,8 @@ def provider_for_model(model: str, models: dict[str, list[str]]) -> str | None:
     lowered = selected.lower()
     if lowered.startswith("grok-"):
         return "xai"
+    if lowered.startswith(("gpt-", "o1", "o3", "o4")):
+        return "openai"
     return None
 
 
