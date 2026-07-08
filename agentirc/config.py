@@ -66,9 +66,9 @@ class ChatConfig:
     history_encryption_key: str = ""
 
     @classmethod
-    def from_env(cls) -> ChatConfig:
+    def from_env(cls, env_file: str = ".env") -> ChatConfig:
         """Build config from environment variables."""
-        load_env()
+        load_env(env_file)
         openai_models = _parse_csv(os.environ.get("OPENAI_MODELS"))
         xai_models = _parse_csv(os.environ.get("XAI_MODELS"))
         lmstudio_models = _parse_csv(os.environ.get("LMSTUDIO_MODELS"))

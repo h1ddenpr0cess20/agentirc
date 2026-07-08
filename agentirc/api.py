@@ -46,7 +46,7 @@ class ResponsesClient:
         return "https://api.openai.com/v1"
 
     def _base_url(self, provider: str, api_base: str | None = None) -> str:
-        configured = str(api_base or self.api_base or "").strip()
+        configured = str(api_base or self.api_base or "").strip().rstrip("/")
         base = configured or self._fallback_base_url(provider)
         if base.endswith("/v1"):
             return base
@@ -130,7 +130,7 @@ class ResponsesClient:
             return not any(fragment in lowered for fragment in blocked_fragments)
 
         prefixes = ("gpt-", "o1", "o3", "o4")
-        if not model_id.startswith(prefixes):
+        if not lowered.startswith(prefixes):
             return False
 
         blocked_fragments = (

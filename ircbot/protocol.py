@@ -73,6 +73,7 @@ def parse(line: str) -> IRCMessage:
     # Extract prefix
     if remaining.startswith(":"):
         prefix, _, remaining = remaining[1:].partition(" ")
+        remaining = remaining.lstrip(" ")
 
     # Extract command
     if " " in remaining:
@@ -91,7 +92,8 @@ def parse(line: str) -> IRCMessage:
             break
         if " " in remaining:
             param, _, remaining = remaining.partition(" ")
-            params.append(param)
+            if param:
+                params.append(param)
         else:
             params.append(remaining)
             break

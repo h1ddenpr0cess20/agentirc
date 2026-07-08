@@ -427,6 +427,9 @@ class ChatBot:
             return
 
         cleaned = self._clean_response_text(reply)
+        if not cleaned:
+            await bot.reply(msg, "(no response)")
+            return
         self.history.add(room, user, "assistant", cleaned)
         for line in cleaned.splitlines():
             if line.strip():

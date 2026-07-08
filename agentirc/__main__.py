@@ -105,7 +105,7 @@ def main() -> None:
         format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
     )
 
-    config = ChatConfig.from_env()
+    config = ChatConfig.from_env(args.env_file)
     bot = ChatBot(config)
     try:
         asyncio.run(bot.run())

@@ -89,7 +89,7 @@ class IRCConnection:
         while self._connected:
             try:
                 raw = await self._reader.readline()
-            except (ConnectionResetError, asyncio.IncompleteReadError, OSError):
+            except (ConnectionResetError, asyncio.IncompleteReadError, OSError, ValueError):
                 break
             if not raw:
                 break
