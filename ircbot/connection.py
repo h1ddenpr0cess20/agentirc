@@ -38,6 +38,7 @@ class IRCConnection:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._connected = False
+        self._stopping = False
 
     @property
     def connected(self) -> bool:
@@ -56,6 +57,11 @@ class IRCConnection:
         )
         self._connected = True
         log.info("Connected to %s:%d (tls=%s)", self.host, self.port, self.use_tls)
+
+    async def stop(self) -> None:
+        """Disconnect and end the run_forever reconnect loop."""
+        self._stopping = True
+        await self.disconnect()
 
     async def disconnect(self) -> None:
         """Close the TCP connection gracefully."""
@@ -112,8 +118,9 @@ class IRCConnection:
             on_line: Called for every raw IRC line received.
         """
         backoff = _BACKOFF_BASE
+        self._stopping = False
 
-        while True:
+        while not self._stopping:
             try:
                 await self.connect()
                 backoff = _BACKOFF_BASE  # reset on successful connect
@@ -127,6 +134,9 @@ class IRCConnection:
 
             finally:
                 await self.disconnect()
+
+            if self._stopping:
+                break
 
             log.info("Reconnecting in %ds...", backoff)
             await asyncio.sleep(backoff)

@@ -33,7 +33,7 @@ class IRCMessage:
 
     @property
     def is_channel(self) -> bool:
-        """Whether the target is a channel (starts with # or &)."""
+        """Whether the target is a channel (starts with #, &, ! or +)."""
         return bool(self.target) and self.target[0] in "#&!+"
 
     @property

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import sys
@@ -11,7 +12,17 @@ from .bot import IRCBot
 from .commands import register_builtins
 
 
-def setup_logging() -> None:
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the plain IRC bot")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging for the connection layer",
+    )
+    return parser.parse_args()
+
+
+def setup_logging(debug: bool = False) -> None:
     """Configure stdlib logging with a clean format."""
     logging.basicConfig(
         level=logging.INFO,
@@ -19,9 +30,8 @@ def setup_logging() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stderr,
     )
-    # Quiet down the debug-level line logging unless DEBUG is set
     logging.getLogger("ircbot.connection").setLevel(
-        logging.DEBUG if "--debug" in sys.argv else logging.INFO
+        logging.DEBUG if debug else logging.INFO
     )
 
 
@@ -34,7 +44,8 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    setup_logging()
+    args = parse_args()
+    setup_logging(args.debug)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

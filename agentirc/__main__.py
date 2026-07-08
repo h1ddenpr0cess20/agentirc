@@ -9,7 +9,7 @@ from .config import ChatConfig
 from .bot import ChatBot
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AI-powered IRC agent")
     parser.add_argument(
         "--init",
@@ -64,29 +64,23 @@ def main() -> None:
         metavar="MODEL",
         help="Default model (overrides DEFAULT_MODEL)",
     )
-    args = parser.parse_args()
+    return parser
 
-    if args.init:
-        from importlib.resources import files
-        dest = os.path.join(os.getcwd(), ".env")
-        if os.path.exists(dest):
-            print(f"{dest} already exists, not overwriting.")
-            return
-        content = files("agentirc").joinpath(".env.example").read_text()
-        with open(dest, "w") as f:
-            f.write(content)
-        print(f"Wrote starter config to {dest}")
+
+def write_starter_env() -> None:
+    from importlib.resources import files
+    dest = os.path.join(os.getcwd(), ".env")
+    if os.path.exists(dest):
+        print(f"{dest} already exists, not overwriting.")
         return
+    content = files("agentirc").joinpath(".env.example").read_text()
+    with open(dest, "w") as f:
+        f.write(content)
+    print(f"Wrote starter config to {dest}")
 
-    if args.generate_key:
-        from cryptography.fernet import Fernet
-        print(Fernet.generate_key().decode())
-        return
 
-    # Load .env first, then apply CLI overrides (which win via direct set)
-    from ircbot.config import load_env
-    load_env(args.env_file)
-
+def apply_cli_overrides(args: argparse.Namespace) -> None:
+    """Apply CLI flags on top of the loaded .env (direct set beats setdefault)."""
     if args.host:
         os.environ["IRC_HOST"] = args.host
     if args.port is not None:
@@ -99,6 +93,23 @@ def main() -> None:
         os.environ["IRC_USE_TLS"] = "true"
     if args.model:
         os.environ["DEFAULT_MODEL"] = args.model
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+
+    if args.init:
+        write_starter_env()
+        return
+
+    if args.generate_key:
+        from cryptography.fernet import Fernet
+        print(Fernet.generate_key().decode())
+        return
+
+    from ircbot.config import load_env
+    load_env(args.env_file)
+    apply_cli_overrides(args)
 
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,

@@ -171,8 +171,6 @@ class TestStoreDisabled:
             api_base="https://api.x.ai/v1",
             api_key="test",
             model="grok-4-1-fast-non-reasoning",
-            system_prompt="test",
-            max_tokens=100,
             enabled_tools=[],
             provider="xai",
         )

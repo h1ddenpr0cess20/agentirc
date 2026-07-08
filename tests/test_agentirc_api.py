@@ -16,8 +16,6 @@ def _client(api_base: str = "https://api.x.ai/v1") -> ResponsesClient:
         api_base=api_base,
         api_key="",
         model="grok-4-1-fast-non-reasoning",
-        system_prompt="be concise",
-        max_tokens=200,
         enabled_tools=[],
         provider="xai",
     )

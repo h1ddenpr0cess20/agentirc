@@ -19,6 +19,9 @@ from .connection import IRCConnection
 
 log = logging.getLogger(__name__)
 
+_CHOP_WIDTH = 420
+_MULTILINE_SEND_DELAY = 1.0
+
 
 # -- Command handler types --
 
@@ -110,7 +113,7 @@ class IRCBot:
         await self.conn.send(line)
 
     @staticmethod
-    def _chop(text: str, width: int = 420) -> list[str]:
+    def _chop(text: str, width: int = _CHOP_WIDTH) -> list[str]:
         """Wrap text into lines under width, preserving word boundaries."""
         result: list[str] = []
         for line in text.splitlines():
@@ -133,7 +136,7 @@ class IRCBot:
         for i, line in enumerate(lines):
             await self.send(f"PRIVMSG {target} :{line}")
             if i < len(lines) - 1:
-                await asyncio.sleep(1)
+                await asyncio.sleep(_MULTILINE_SEND_DELAY)
 
     async def notice(self, target: str, text: str) -> None:
         """Send a NOTICE, chopping long lines at word boundaries."""
@@ -141,7 +144,7 @@ class IRCBot:
         for i, line in enumerate(lines):
             await self.send(f"NOTICE {target} :{line}")
             if i < len(lines) - 1:
-                await asyncio.sleep(1)
+                await asyncio.sleep(_MULTILINE_SEND_DELAY)
 
     async def reply(self, msg: protocol.IRCMessage, text: str) -> None:
         """Reply in the appropriate context (channel or DM)."""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 
 from ircbot import IRCBot, IRCMessage, register_builtins
@@ -17,6 +18,46 @@ from .models import (
 from .tools import build_tools, tools_for_model
 
 log = logging.getLogger(__name__)
+
+_HISTORY_MAX_ITEMS = 24
+_REPLY_LINE_DELAY = 0.5
+
+_PROVIDER_LABELS = {
+    "xai": "xAI",
+    "openai": "OpenAI",
+    "lmstudio": "LM Studio",
+}
+
+_TOGGLE_ON = {"on", "true", "1", "enable", "enabled"}
+_TOGGLE_OFF = {"off", "false", "0", "disable", "disabled"}
+_TOGGLE_FLIP = {"toggle", "switch"}
+
+
+def _parse_toggle(arg: str, current: bool) -> bool | None:
+    """Resolve an on/off/toggle argument against the current state.
+
+    Returns the new state, or ``None`` when the argument is not recognized.
+    """
+    if arg in _TOGGLE_ON:
+        return True
+    if arg in _TOGGLE_OFF:
+        return False
+    if arg in _TOGGLE_FLIP:
+        return not current
+    return None
+
+
+def admin_only(fn):
+    """Guard a ChatBot command method so only configured admins can run it."""
+
+    @functools.wraps(fn)
+    async def wrapper(self: ChatBot, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        if not self._is_admin(msg.nick):
+            await bot.reply(msg, "Admin only.")
+            return
+        await fn(self, bot, msg, args)
+
+    return wrapper
 
 
 class ChatBot:
@@ -33,7 +74,6 @@ class ChatBot:
         self.default_model = pick_default_model(self.models, config.default_model)
         self.model = self.default_model
         self.default_personality = config.default_personality
-        self.personality = self.default_personality
         self.tools_enabled = True
         self.verbose = False
         self.search_country_enabled = bool(config.web_search_country)
@@ -49,7 +89,8 @@ class ChatBot:
             prompt_suffix=config.prompt_suffix,
             personality=config.default_personality,
             prompt_suffix_extra=config.prompt_suffix_extra,
-            max_items=24,
+            max_items=_HISTORY_MAX_ITEMS,
+            system_prompt=config.default_system_prompt or None,
             store_path=store_path,
             encryption_key=encryption_key,
         )
@@ -61,8 +102,6 @@ class ChatBot:
             api_base=self._base_url(provider),
             api_key=self._api_key(provider),
             model=self.model,
-            system_prompt=self._default_prompt(),
-            max_tokens=config.max_tokens,
             enabled_tools=config.tools,
             provider=provider,
         )
@@ -73,218 +112,197 @@ class ChatBot:
     def _register_commands(self) -> None:
         """Register built-in IRC commands and AI commands."""
         register_builtins(self.bot)
+        command = self.bot.command
+        command("ai", help="Talk to the AI: !chat <message>", aliases=["chat", "ask"])(self._cmd_chat)
+        command("x", help="Talk as another user: !x <nick> <message>")(self._cmd_x)
+        command("persona", help="Set persona and reintroduce: !persona <text>")(self._cmd_persona)
+        command("custom", help="Set custom system prompt: !custom <prompt>")(self._cmd_custom)
+        command("reset", help="Reset your AI conversation to default settings")(self._cmd_reset)
+        command("stock", help="Reset your AI conversation with no system prompt")(self._cmd_stock)
+        command("mymodel", help="Show or set your model: !mymodel [name]")(self._cmd_mymodel)
+        command("model", help="Admin: show/set global model: !model [name|reset]")(self._cmd_model)
+        command("tools", help="Admin: !tools [on|off|toggle|status]")(self._cmd_tools)
+        command("verbose", help="Admin: !verbose [on|off|toggle|status]")(self._cmd_verbose)
+        command("clear", help="Admin: clear all conversation state")(self._cmd_clear)
+        command("country", help="Admin: toggle search country filtering: !country [on|off|status]")(self._cmd_country)
+        command("location", help="Set your location: !location <place> | !location clear")(self._cmd_location)
+        command("join", help="Admin: join a channel: !join <#channel>")(self._cmd_join)
+        command("part", help="Admin: leave a channel: !part [#channel] [reason]")(self._cmd_part)
 
-        @self.bot.command("ai", help="Talk to the AI: !chat <message>", aliases=["chat", "ask"])
-        async def cmd_chat(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            if not args.strip():
-                await bot.reply(msg, "Usage: !chat <message>")
-                return
-            await self._respond(bot, msg, msg.nick, args.strip())
+    async def _cmd_chat(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        if not args.strip():
+            await bot.reply(msg, "Usage: !chat <message>")
+            return
+        await self._respond(bot, msg, msg.nick, args.strip())
 
-        @self.bot.command("x", help="Talk as another user: !x <nick> <message>")
-        async def cmd_x(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            parts = args.strip().split(None, 1)
-            if len(parts) < 2:
-                await bot.reply(msg, "Usage: !x <nick> <message>")
-                return
-            target_nick, text = parts[0], parts[1].strip()
-            if not text:
-                await bot.reply(msg, "Usage: !x <nick> <message>")
-                return
-            await self._respond(bot, msg, target_nick, text)
+    async def _cmd_x(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        parts = args.strip().split(None, 1)
+        if len(parts) < 2:
+            await bot.reply(msg, "Usage: !x <nick> <message>")
+            return
+        target_nick, text = parts[0], parts[1].strip()
+        if not text:
+            await bot.reply(msg, "Usage: !x <nick> <message>")
+            return
+        await self._respond(bot, msg, target_nick, text)
 
-        @self.bot.command("persona", help="Set persona and reintroduce: !persona <text>")
-        async def cmd_persona(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            room, user = self._thread_key(msg, msg.nick)
-            persona = args.strip() or self.default_personality
-            self.history.init_prompt(room, user, persona=persona)
-            self.history.add(room, user, "user", "introduce yourself")
-            await self._respond(bot, msg, msg.nick)
+    async def _cmd_persona(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        room, user = self._thread_key(msg, msg.nick)
+        persona = args.strip() or self.default_personality
+        self.history.init_prompt(room, user, persona=persona)
+        self.history.add(room, user, "user", "introduce yourself")
+        await self._respond(bot, msg, msg.nick)
 
-        @self.bot.command("custom", help="Set custom system prompt: !custom <prompt>")
-        async def cmd_custom(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            custom = args.strip()
-            if not custom:
-                await bot.reply(msg, "Usage: !custom <prompt>")
-                return
-            room, user = self._thread_key(msg, msg.nick)
-            self.history.init_prompt(room, user, custom=custom)
-            self.history.add(room, user, "user", "introduce yourself")
-            await self._respond(bot, msg, msg.nick)
+    async def _cmd_custom(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        custom = args.strip()
+        if not custom:
+            await bot.reply(msg, "Usage: !custom <prompt>")
+            return
+        room, user = self._thread_key(msg, msg.nick)
+        self.history.init_prompt(room, user, custom=custom)
+        self.history.add(room, user, "user", "introduce yourself")
+        await self._respond(bot, msg, msg.nick)
 
-        @self.bot.command("reset", help="Reset your AI conversation to default settings")
-        async def cmd_reset(bot: IRCBot, msg: IRCMessage, _args: str) -> None:
-            room, user = self._thread_key(msg, msg.nick)
-            self.history.reset(room, user, stock=False)
-            await bot.reply(msg, f"{self.bot.config.nick} reset to default for {msg.nick}")
+    async def _cmd_reset(self, bot: IRCBot, msg: IRCMessage, _args: str) -> None:
+        room, user = self._thread_key(msg, msg.nick)
+        self.history.reset(room, user, stock=False)
+        await bot.reply(msg, f"{self.bot.config.nick} reset to default for {msg.nick}")
 
-        @self.bot.command("stock", help="Reset your AI conversation with no system prompt")
-        async def cmd_stock(bot: IRCBot, msg: IRCMessage, _args: str) -> None:
-            room, user = self._thread_key(msg, msg.nick)
-            self.history.reset(room, user, stock=True)
-            await bot.reply(msg, f"Stock settings applied for {msg.nick}")
+    async def _cmd_stock(self, bot: IRCBot, msg: IRCMessage, _args: str) -> None:
+        room, user = self._thread_key(msg, msg.nick)
+        self.history.reset(room, user, stock=True)
+        await bot.reply(msg, f"Stock settings applied for {msg.nick}")
 
-        @self.bot.command("mymodel", help="Show or set your model: !mymodel [name]")
-        async def cmd_mymodel(bot: IRCBot, msg: IRCMessage, args: str) -> None:
+    async def _cmd_mymodel(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        await self._refresh_models()
+        room, user = self._thread_key(msg, msg.nick)
+        requested = args.strip()
+        if not requested:
+            current = self._user_models.get(room, {}).get(user, self.model)
+            await bot.reply(msg, f"Your current model: {current}")
+            await bot.reply(msg, f"Available models: {', '.join(self._all_models())}")
+            return
+        if not self._is_valid_model(requested):
+            await bot.reply(msg, f"Model '{requested}' not found. Available: {', '.join(self._all_models())}")
+            return
+        self._user_models.setdefault(room, {})[user] = requested
+        await bot.reply(msg, f"Model for {msg.nick} set to {requested}")
+
+    @admin_only
+    async def _cmd_model(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        requested = args.strip()
+        if not requested:
             await self._refresh_models()
-            room, user = self._thread_key(msg, msg.nick)
-            requested = args.strip()
-            if not requested:
-                current = self._user_models.get(room, {}).get(user, self.model)
-                await bot.reply(msg, f"Your current model: {current}")
-                await bot.reply(msg, f"Available models: {', '.join(self._all_models())}")
-                return
-            if not self._is_valid_model(requested):
-                await bot.reply(msg, f"Model '{requested}' not found. Available: {', '.join(self._all_models())}")
-                return
-            self._user_models.setdefault(room, {})[user] = requested
-            await bot.reply(msg, f"Model for {msg.nick} set to {requested}")
-
-        @self.bot.command("model", help="Admin: show/set global model: !model [name|reset]")
-        async def cmd_model(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            if not self._is_admin(msg.nick):
-                await bot.reply(msg, "Admin only.")
-                return
-            
-            requested = args.strip()
-            if not requested:
-                await self._refresh_models()
-                await bot.reply(msg, f"Current model: {self.model}")
-                for line in self._models_by_provider_lines():
-                    await bot.reply(msg, line)
-                return
-            if requested.lower() == "reset":
-                self.model = self.default_model
-                await bot.reply(msg, f"Model set to {self.model}")
-                return
-            if self._is_valid_model(requested):
-                self.model = requested
-                await bot.reply(msg, f"Model set to {self.model}")
-                return
-            await bot.reply(msg, f"Model '{requested}' not found.")
-
-        @self.bot.command("tools", help="Admin: !tools [on|off|toggle|status]")
-        async def cmd_tools(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            if not self._is_admin(msg.nick):
-                await bot.reply(msg, "Admin only.")
-                return
-            arg = args.strip().lower()
-            if arg in ("", "status"):
-                state = "enabled" if self.tools_enabled else "disabled"
-                await bot.reply(msg, f"Tools are currently {state}")
-                return
-            if arg in ("on", "enable", "enabled"):
-                self.tools_enabled = True
-            elif arg in ("off", "disable", "disabled"):
-                self.tools_enabled = False
-            else:
-                self.tools_enabled = not self.tools_enabled
-            state = "enabled" if self.tools_enabled else "disabled"
-            await bot.reply(msg, f"Tools are now {state}")
-
-        @self.bot.command("verbose", help="Admin: !verbose [on|off|toggle|status]")
-        async def cmd_verbose(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            if not self._is_admin(msg.nick):
-                await bot.reply(msg, "Admin only.")
-                return
-            arg = args.strip().lower()
-            if arg in ("", "status"):
-                await bot.reply(msg, f"Verbose mode is {'ON' if self.verbose else 'OFF'}")
-                return
-            if arg in ("on", "true", "1", "enable", "enabled"):
-                self.verbose = True
-            elif arg in ("off", "false", "0", "disable", "disabled"):
-                self.verbose = False
-            elif arg in ("toggle", "switch"):
-                self.verbose = not self.verbose
-            else:
-                await bot.reply(msg, "Usage: !verbose [on|off|toggle]")
-                return
-            self.history.set_verbose(self.verbose)
-            await bot.reply(msg, f"Verbose mode set to {'ON' if self.verbose else 'OFF'}")
-
-        @self.bot.command("clear", help="Admin: clear all conversation state")
-        async def cmd_clear(bot: IRCBot, msg: IRCMessage, _args: str) -> None:
-            if not self._is_admin(msg.nick):
-                await bot.reply(msg, "Admin only.")
-                return
-            self.history.clear_all()
-            self._user_models.clear()
+            await bot.reply(msg, f"Current model: {self.model}")
+            for line in self._models_by_provider_lines():
+                await bot.reply(msg, line)
+            return
+        if requested.lower() == "reset":
             self.model = self.default_model
-            self.personality = self.default_personality
-            await bot.reply(msg, "Bot has been reset for everyone.")
+            await bot.reply(msg, f"Model set to {self.model}")
+            return
+        if self._is_valid_model(requested):
+            self.model = requested
+            await bot.reply(msg, f"Model set to {self.model}")
+            return
+        await bot.reply(msg, f"Model '{requested}' not found.")
 
-        @self.bot.command("country", help="Admin: toggle search country filtering: !country [on|off|status]")
-        async def cmd_country(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            if not self._is_admin(msg.nick):
-                await bot.reply(msg, "Admin only.")
-                return
-            country = self.config.web_search_country
-            if not country:
-                await bot.reply(msg, "No search country configured (WEB_SEARCH_COUNTRY not set).")
-                return
-            arg = args.strip().lower()
-            if arg in ("", "status"):
-                state = "enabled" if self.search_country_enabled else "disabled"
-                await bot.reply(msg, f"Search country filtering ({country}): {state}")
-                return
-            if arg in ("on", "enable", "enabled"):
-                self.search_country_enabled = True
-            elif arg in ("off", "disable", "disabled"):
-                self.search_country_enabled = False
-            else:
-                self.search_country_enabled = not self.search_country_enabled
+    @admin_only
+    async def _cmd_tools(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        arg = args.strip().lower()
+        if arg in ("", "status"):
+            state = "enabled" if self.tools_enabled else "disabled"
+            await bot.reply(msg, f"Tools are currently {state}")
+            return
+        new_state = _parse_toggle(arg, self.tools_enabled)
+        if new_state is None:
+            await bot.reply(msg, "Usage: !tools [on|off|toggle|status]")
+            return
+        self.tools_enabled = new_state
+        state = "enabled" if self.tools_enabled else "disabled"
+        await bot.reply(msg, f"Tools are now {state}")
+
+    @admin_only
+    async def _cmd_verbose(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        arg = args.strip().lower()
+        if arg in ("", "status"):
+            await bot.reply(msg, f"Verbose mode is {'ON' if self.verbose else 'OFF'}")
+            return
+        new_state = _parse_toggle(arg, self.verbose)
+        if new_state is None:
+            await bot.reply(msg, "Usage: !verbose [on|off|toggle]")
+            return
+        self.verbose = new_state
+        self.history.set_verbose(self.verbose)
+        await bot.reply(msg, f"Verbose mode set to {'ON' if self.verbose else 'OFF'}")
+
+    @admin_only
+    async def _cmd_clear(self, bot: IRCBot, msg: IRCMessage, _args: str) -> None:
+        self.history.clear_all()
+        self._user_models.clear()
+        self.model = self.default_model
+        await bot.reply(msg, "Bot has been reset for everyone.")
+
+    @admin_only
+    async def _cmd_country(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        country = self.config.web_search_country
+        if not country:
+            await bot.reply(msg, "No search country configured (WEB_SEARCH_COUNTRY not set).")
+            return
+        arg = args.strip().lower()
+        if arg in ("", "status"):
             state = "enabled" if self.search_country_enabled else "disabled"
             await bot.reply(msg, f"Search country filtering ({country}): {state}")
+            return
+        new_state = _parse_toggle(arg, self.search_country_enabled)
+        if new_state is None:
+            await bot.reply(msg, "Usage: !country [on|off|toggle|status]")
+            return
+        self.search_country_enabled = new_state
+        state = "enabled" if self.search_country_enabled else "disabled"
+        await bot.reply(msg, f"Search country filtering ({country}): {state}")
 
-        @self.bot.command("location", help="Set your location: !location <place> | !location clear")
-        async def cmd_location(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            _room, user = self._thread_key(msg, msg.nick)
-            arg = args.strip()
-            if not arg:
-                loc = self.history.get_location(user)
-                if loc:
-                    await bot.reply(msg, f"Your location: {loc}")
-                else:
-                    await bot.reply(msg, "No location set. Usage: !location <place>")
-                return
-            if arg.lower() in ("clear", "remove", "reset", "none"):
-                self.history.set_location(user, "")
-                await bot.reply(msg, "Location cleared.")
-                return
-            self.history.set_location(user, arg)
-            await bot.reply(msg, f"Location set to: {arg}")
-
-        @self.bot.command("join", help="Admin: join a channel: !join <#channel>")
-        async def cmd_join(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            if not self._is_admin(msg.nick):
-                await bot.reply(msg, "Admin only.")
-                return
-            channel = args.strip()
-            if not channel:
-                await bot.reply(msg, "Usage: !join <#channel>")
-                return
-            if not channel.startswith(("#", "&", "!", "+")):
-                channel = f"#{channel}"
-            await bot.join(channel)
-            await bot.reply(msg, f"Joined {channel}")
-
-        @self.bot.command("part", help="Admin: leave a channel: !part [#channel] [reason]")
-        async def cmd_part(bot: IRCBot, msg: IRCMessage, args: str) -> None:
-            if not self._is_admin(msg.nick):
-                await bot.reply(msg, "Admin only.")
-                return
-            parts = args.strip().split(None, 1)
-            if parts and parts[0].startswith(("#", "&", "!", "+")):
-                channel = parts[0]
-                reason = parts[1] if len(parts) > 1 else ""
-            elif msg.is_channel:
-                channel = msg.target
-                reason = args.strip()
+    async def _cmd_location(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        _room, user = self._thread_key(msg, msg.nick)
+        arg = args.strip()
+        if not arg:
+            loc = self.history.get_location(user)
+            if loc:
+                await bot.reply(msg, f"Your location: {loc}")
             else:
-                await bot.reply(msg, "Usage: !part <#channel> [reason]")
-                return
-            await bot.part(channel, reason)
+                await bot.reply(msg, "No location set. Usage: !location <place>")
+            return
+        if arg.lower() in ("clear", "remove", "reset", "none"):
+            self.history.set_location(user, "")
+            await bot.reply(msg, "Location cleared.")
+            return
+        self.history.set_location(user, arg)
+        await bot.reply(msg, f"Location set to: {arg}")
+
+    @admin_only
+    async def _cmd_join(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        channel = args.strip()
+        if not channel:
+            await bot.reply(msg, "Usage: !join <#channel>")
+            return
+        if not channel.startswith(("#", "&", "!", "+")):
+            channel = f"#{channel}"
+        await bot.join(channel)
+        await bot.reply(msg, f"Joined {channel}")
+
+    @admin_only
+    async def _cmd_part(self, bot: IRCBot, msg: IRCMessage, args: str) -> None:
+        parts = args.strip().split(None, 1)
+        if parts and parts[0].startswith(("#", "&", "!", "+")):
+            channel = parts[0]
+            reason = parts[1] if len(parts) > 1 else ""
+        elif msg.is_channel:
+            channel = msg.target
+            reason = args.strip()
+        else:
+            await bot.reply(msg, "Usage: !part <#channel> [reason]")
+            return
+        await bot.part(channel, reason)
 
     def _thread_key(self, msg: IRCMessage, user_nick: str) -> tuple[str, str]:
         room = msg.target.lower() if msg.is_channel else "__dm__"
@@ -323,13 +341,7 @@ class ChatBot:
 
     @staticmethod
     def _provider_label(provider: str) -> str:
-        if provider == "xai":
-            return "xAI"
-        if provider == "openai":
-            return "OpenAI"
-        if provider == "lmstudio":
-            return "LM Studio"
-        return provider
+        return _PROVIDER_LABELS.get(provider, provider)
 
     def _models_by_provider_lines(self) -> list[str]:
         lines: list[str] = []
@@ -367,33 +379,16 @@ class ChatBot:
             merged[provider] = sorted(dict.fromkeys([*fetched, *configured]))
         self.models = merged
 
-    def _default_prompt(self) -> str:
-        if self.config.default_system_prompt:
-            return self.config.default_system_prompt
-        extra = "" if self.verbose else self.config.prompt_suffix_extra
-        return (
-            f"{self.config.prompt_prefix}"
-            f"{self.personality}"
-            f"{self.config.prompt_suffix}"
-            f"{extra}"
-        ).strip()
-
     @staticmethod
     def _clean_response_text(text: str) -> str:
         cleaned = text or ""
-        if "</think>" in cleaned and "<think>" in cleaned:
-            try:
-                cleaned = cleaned.split("</think>", 1)[1]
-            except Exception:
-                pass
+        if "<think>" in cleaned and "</think>" in cleaned:
+            cleaned = cleaned.split("</think>", 1)[1]
         if "<|begin_of_solution|>" in cleaned and "<|end_of_solution|>" in cleaned:
-            try:
-                cleaned = cleaned.split("<|begin_of_solution|>", 1)[1].split(
-                    "<|end_of_solution|>",
-                    1,
-                )[0]
-            except Exception:
-                pass
+            cleaned = cleaned.split("<|begin_of_solution|>", 1)[1].split(
+                "<|end_of_solution|>",
+                1,
+            )[0]
         return cleaned.strip()
 
     async def _respond(self, bot: IRCBot, msg: IRCMessage, user_nick: str, text: str | None = None) -> None:
@@ -434,7 +429,7 @@ class ChatBot:
         for line in cleaned.splitlines():
             if line.strip():
                 await bot.reply(msg, line)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(_REPLY_LINE_DELAY)
 
     async def run(self) -> None:
         """Start the agent."""
