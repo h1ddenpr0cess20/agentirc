@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from unittest.mock import AsyncMock, patch, call
+from unittest.mock import AsyncMock, patch
 
-from ircbot.bot import IRCBot, Command
+from ircbot.bot import IRCBot
 from ircbot.config import BotConfig
 from ircbot.protocol import parse
 
