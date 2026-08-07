@@ -33,7 +33,7 @@ class IRCMessage:
 
     @property
     def is_channel(self) -> bool:
-        """Whether the target is a channel (starts with # or &)."""
+        """Whether the target is a channel (starts with #, &, ! or +)."""
         return bool(self.target) and self.target[0] in "#&!+"
 
     @property
@@ -73,6 +73,7 @@ def parse(line: str) -> IRCMessage:
     # Extract prefix
     if remaining.startswith(":"):
         prefix, _, remaining = remaining[1:].partition(" ")
+        remaining = remaining.lstrip(" ")
 
     # Extract command
     if " " in remaining:
@@ -91,7 +92,8 @@ def parse(line: str) -> IRCMessage:
             break
         if " " in remaining:
             param, _, remaining = remaining.partition(" ")
-            params.append(param)
+            if param:
+                params.append(param)
         else:
             params.append(remaining)
             break

@@ -15,6 +15,8 @@ _DEFAULT_PERSONALITY = "a helpful IRC chatbot"
 _DEFAULT_PROMPT_PREFIX = "You are "
 _DEFAULT_PROMPT_SUFFIX = "."
 _DEFAULT_PROMPT_SUFFIX_EXTRA = " Keep responses concise (under 400 chars) since this is IRC."
+_DEFAULT_TOOLS = ("web_search", "x_search", "code_interpreter")
+_DEFAULT_MAX_TOKENS = 300
 
 
 def _parse_csv(value: str | None) -> list[str]:
@@ -37,6 +39,16 @@ def _parse_mcp_servers(value: str | None) -> list[dict]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
+def _parse_int(value: str | None, default: int, name: str) -> int:
+    if value is None or not value.strip():
+        return default
+    try:
+        return int(value.strip())
+    except ValueError:
+        log.warning("%s=%r is not an integer; using %d", name, value, default)
+        return default
+
+
 def _parse_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
@@ -57,8 +69,8 @@ class ChatConfig:
     prompt_suffix: str = _DEFAULT_PROMPT_SUFFIX
     prompt_suffix_extra: str = _DEFAULT_PROMPT_SUFFIX_EXTRA
     default_system_prompt: str = ""
-    max_tokens: int = 300
-    tools: list[str] = field(default_factory=lambda: ["web_search", "x_search", "code_interpreter"])
+    max_tokens: int = _DEFAULT_MAX_TOKENS
+    tools: list[str] = field(default_factory=lambda: list(_DEFAULT_TOOLS))
     mcp_servers: list[dict] = field(default_factory=list)
     admins: list[str] = field(default_factory=list)
     server_models: bool = True
@@ -66,9 +78,9 @@ class ChatConfig:
     history_encryption_key: str = ""
 
     @classmethod
-    def from_env(cls) -> ChatConfig:
+    def from_env(cls, env_file: str = ".env") -> ChatConfig:
         """Build config from environment variables."""
-        load_env()
+        load_env(env_file)
         openai_models = _parse_csv(os.environ.get("OPENAI_MODELS"))
         xai_models = _parse_csv(os.environ.get("XAI_MODELS"))
         lmstudio_models = _parse_csv(os.environ.get("LMSTUDIO_MODELS"))
@@ -113,12 +125,12 @@ class ChatConfig:
             prompt_suffix=os.environ.get("AGENTIRC_PROMPT_SUFFIX", _DEFAULT_PROMPT_SUFFIX),
             prompt_suffix_extra=os.environ.get("AGENTIRC_PROMPT_SUFFIX_EXTRA", _DEFAULT_PROMPT_SUFFIX_EXTRA),
             default_system_prompt=os.environ.get("AGENTIRC_SYSTEM_PROMPT", "").strip(),
-            max_tokens=int(os.environ.get("AGENTIRC_MAX_TOKENS", "300")),
-            tools=[
-                t.strip()
-                for t in os.environ.get("AGENTIRC_TOOLS", "web_search,x_search,code_interpreter").split(",")
-                if t.strip()
-            ],
+            max_tokens=_parse_int(os.environ.get("AGENTIRC_MAX_TOKENS"), _DEFAULT_MAX_TOKENS, "AGENTIRC_MAX_TOKENS"),
+            tools=(
+                list(_DEFAULT_TOOLS)
+                if (tools_env := os.environ.get("AGENTIRC_TOOLS")) is None
+                else _parse_csv(tools_env)
+            ),
             mcp_servers=_parse_mcp_servers(os.environ.get("AGENTIRC_MCP_SERVERS")),
             admins=[nick.lower() for nick in _parse_csv(os.environ.get("AGENTIRC_ADMINS"))],
             server_models=_parse_bool(os.environ.get("AGENTIRC_SERVER_MODELS"), True),

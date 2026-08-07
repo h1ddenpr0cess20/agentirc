@@ -19,13 +19,13 @@ class ResponsesClient:
 
     LMSTUDIO_FALLBACK_USER_PROMPT = "Please continue the conversation."
 
+    REQUEST_TIMEOUT = httpx.Timeout(300.0)
+
     def __init__(
         self,
         api_base: str,
         api_key: str,
         model: str,
-        system_prompt: str,
-        max_tokens: int,
         enabled_tools: list[str],
         provider: str = "openai",
     ) -> None:
@@ -33,8 +33,6 @@ class ResponsesClient:
         self.api_key = api_key
         self.model = model
         self.provider = provider
-        self.system_prompt = system_prompt
-        self.max_tokens = max_tokens
         self.enabled_tools = list(enabled_tools)
 
     @staticmethod
@@ -46,13 +44,13 @@ class ResponsesClient:
         return "https://api.openai.com/v1"
 
     def _base_url(self, provider: str, api_base: str | None = None) -> str:
-        configured = str(api_base or self.api_base or "").strip()
+        configured = str(api_base or self.api_base or "").strip().rstrip("/")
         base = configured or self._fallback_base_url(provider)
         if base.endswith("/v1"):
             return base
         return f"{base}/v1"
 
-    def _headers(self, provider: str, api_key: str | None = None) -> dict[str, str]:
+    def _headers(self, api_key: str | None = None) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
         token = str(self.api_key if api_key is None else api_key).strip()
         if token:
@@ -130,7 +128,7 @@ class ResponsesClient:
             return not any(fragment in lowered for fragment in blocked_fragments)
 
         prefixes = ("gpt-", "o1", "o3", "o4")
-        if not model_id.startswith(prefixes):
+        if not lowered.startswith(prefixes):
             return False
 
         blocked_fragments = (
@@ -260,58 +258,14 @@ class ResponsesClient:
             model,
             len(tools or []),
         )
-        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
+        async with httpx.AsyncClient(timeout=self.REQUEST_TIMEOUT) as client:
             response = await client.post(
                 f"{base_url}/responses",
-                headers=self._headers(provider_name, api_key),
+                headers=self._headers(api_key),
                 json=payload,
             )
             self._raise_for_status(response)
             return response.json()
-
-    async def ask(
-        self,
-        user_input: str,
-        previous_response_id: str | None = None,
-        *,
-        model: str | None = None,
-        system_prompt: str | None = None,
-        enabled_tools: list[str] | None = None,
-        provider: str | None = None,
-        api_base: str | None = None,
-        api_key: str | None = None,
-        max_tokens: int | None = None,
-    ) -> tuple[str, str | None]:
-        """Single-turn helper: send one system+user exchange.
-
-        Returns ``(text, response_id)``. For multi-turn conversations with
-        history use :meth:`ask_messages`.
-        """
-        del max_tokens
-        provider_name = provider or self.provider
-        final_model = model or self.model
-        prompt = self.system_prompt if system_prompt is None else system_prompt
-        messages: list[dict[str, str]] = []
-        if prompt:
-            messages.append({"role": "system", "content": prompt})
-        messages.append({"role": "user", "content": user_input})
-        tools = build_tools(
-            self.enabled_tools if enabled_tools is None else enabled_tools,
-            provider=provider_name,
-        )
-        result = await self.create_response(
-            model=final_model,
-            messages=messages,
-            tools=tools,
-            previous_response_id=previous_response_id,
-            provider=provider_name,
-            api_base=api_base,
-            api_key=api_key,
-        )
-        log.debug("Raw API response: %s", json.dumps(result, indent=2))
-        text = self._extract_text(result)
-        response_id = result.get("id")
-        return text, response_id
 
     async def ask_messages(
         self,
@@ -369,10 +323,10 @@ class ResponsesClient:
         """
         base_url = self._base_url(provider, api_base)
         log.info("api GET %s/models provider=%s", base_url, provider)
-        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
+        async with httpx.AsyncClient(timeout=self.REQUEST_TIMEOUT) as client:
             response = await client.get(
                 f"{base_url}/models",
-                headers=self._headers(provider, api_key),
+                headers=self._headers(api_key),
             )
             self._raise_for_status(response)
             payload = response.json()
