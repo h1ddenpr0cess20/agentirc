@@ -10,9 +10,8 @@ Coverage strategy:
 
 from __future__ import annotations
 
-import pytest
 
-from ircbot.protocol import IRCMessage, parse, parse_prefix
+from ircbot.protocol import parse, parse_prefix
 
 
 # ── parse_prefix ──────────────────────────────────────────────────────

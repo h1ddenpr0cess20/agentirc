@@ -145,7 +145,7 @@ class ChatBot:
             if not self._is_admin(msg.nick):
                 await bot.reply(msg, "Admin only.")
                 return
-            
+
             requested = args.strip()
             if not requested:
                 await self._refresh_models()
