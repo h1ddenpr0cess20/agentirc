@@ -278,6 +278,8 @@ class TestRunForeverBackoff:
             try:
                 _run(conn.run_forever(fake_on_connect, fake_on_line))
             except KeyboardInterrupt:
+                # fake_sleep raises this as the sentinel that stops the
+                # otherwise-infinite reconnect loop; assertions follow below.
                 pass
 
         # Each connect succeeds, so backoff should always reset to base
@@ -310,6 +312,8 @@ class TestRunForeverBackoff:
             try:
                 _run(conn.run_forever(AsyncMock(), AsyncMock()))
             except KeyboardInterrupt:
+                # fake_sleep raises this as the sentinel that stops the
+                # otherwise-infinite reconnect loop; assertions follow below.
                 pass
 
         # First sleep is base (set before the loop, connect fails so no reset)
@@ -344,6 +348,8 @@ class TestRunForeverBackoff:
             try:
                 _run(conn.run_forever(AsyncMock(), AsyncMock()))
             except KeyboardInterrupt:
+                # fake_sleep raises this as the sentinel that stops the
+                # otherwise-infinite reconnect loop; assertions follow below.
                 pass
 
         assert all(s <= _BACKOFF_MAX for s in sleep_values), \
@@ -383,6 +389,8 @@ class TestRunForeverBackoff:
             try:
                 _run(conn.run_forever(AsyncMock(), fake_on_line))
             except KeyboardInterrupt:
+                # fake_sleep raises this as the sentinel that stops the
+                # otherwise-infinite reconnect loop; assertions follow below.
                 pass
 
         assert received_lines == ["PING :server", ":nick PRIVMSG #test :hi"]
@@ -420,6 +428,8 @@ class TestRunForeverBackoff:
             try:
                 _run(conn.run_forever(fake_on_connect, AsyncMock()))
             except KeyboardInterrupt:
+                # fake_sleep raises this as the sentinel that stops the
+                # otherwise-infinite reconnect loop; assertions follow below.
                 pass
 
         assert connect_count[0] == 3
@@ -441,3 +451,30 @@ class TestConstructor:
         assert conn.use_tls is False
         assert conn.encoding == "utf-8"
         assert conn.connected is False
+
+
+class TestSendSecret:
+    """Credential lines are transmitted verbatim but never logged."""
+
+    def test_password_sent_but_not_logged(self, caplog):
+        import logging
+
+        conn = IRCConnection("irc.example.org", 6667)
+        writer = _make_writer()
+        conn._writer = writer
+        with caplog.at_level(logging.DEBUG, logger="ircbot.connection"):
+            _run(conn.send_secret("PASS hunter2", "PASS <redacted>"))
+
+        writer.write.assert_called_once_with(b"PASS hunter2\r\n")
+        assert "hunter2" not in caplog.text
+        assert "PASS <redacted>" in caplog.text
+
+    def test_disconnected_logs_description_only(self, caplog):
+        import logging
+
+        conn = IRCConnection("irc.example.org", 6667)
+        conn._writer = None
+        with caplog.at_level(logging.DEBUG, logger="ircbot.connection"):
+            _run(conn.send_secret("PASS hunter2", "PASS <redacted>"))
+
+        assert "hunter2" not in caplog.text

@@ -71,6 +71,7 @@ class IRCConnection:
                 self._writer.close()
                 await self._writer.wait_closed()
             except OSError:
+                # The socket is already gone; we are tearing it down anyway.
                 pass
             self._writer = None
         self._reader = None
@@ -78,15 +79,43 @@ class IRCConnection:
 
     # -- send / receive --
 
-    async def send(self, line: str) -> None:
-        """Send a single IRC line (appends CRLF)."""
+    async def _write(self, line: str) -> bool:
+        """Write a line to the socket. Returns False when disconnected.
+
+        Logs nothing about the payload, so callers holding a credential can
+        use it without the secret reaching the log.
+        """
         if self._writer is None:
-            log.warning("send() called while disconnected: %s", line)
-            return
+            return False
         data = (line + "\r\n").encode(self.encoding)
         self._writer.write(data)
         await self._writer.drain()
+        return True
+
+    async def send(self, line: str) -> None:
+        """Send a single IRC line (appends CRLF).
+
+        Never use this for a line carrying a password -- the line is written
+        to the debug log verbatim. Use :meth:`send_secret` instead.
+        """
+        if self._writer is None:
+            log.warning("send() called while disconnected: %s", line)
+            return
+        await self._write(line)
         log.debug(">> %s", line)
+
+    async def send_secret(self, line: str, description: str) -> None:
+        """Send a line whose parameters are credentials.
+
+        Args:
+            line: The raw IRC line, including the secret.
+            description: A literal stand-in logged in place of the line; it
+                must not be derived from the secret.
+        """
+        if not await self._write(line):
+            log.warning("send_secret() called while disconnected: %s", description)
+            return
+        log.debug(">> %s", description)
 
     async def read_lines(self) -> AsyncGenerator[str, None]:
         """Yield decoded IRC lines until the connection drops."""

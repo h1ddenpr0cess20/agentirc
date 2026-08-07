@@ -112,6 +112,10 @@ class IRCBot:
         """Send a raw IRC line."""
         await self.conn.send(line)
 
+    async def send_secret(self, line: str, description: str) -> None:
+        """Send a raw IRC line carrying a credential; only ``description`` is logged."""
+        await self.conn.send_secret(line, description)
+
     @staticmethod
     def _chop(text: str, width: int = _CHOP_WIDTH) -> list[str]:
         """Wrap text into lines under width, preserving word boundaries."""
@@ -172,7 +176,7 @@ class IRCBot:
     async def _on_connect(self) -> None:
         """Send registration commands after TCP connect."""
         if self.config.password:
-            await self.send(f"PASS {self.config.password}")
+            await self.send_secret(f"PASS {self.config.password}", "PASS <redacted>")
 
         self.nick = self.config.nick  # reset nick on reconnect
         await self.send(f"NICK {self.nick}")
