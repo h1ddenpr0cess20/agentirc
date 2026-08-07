@@ -35,6 +35,12 @@ agentirc = "agentirc.__main__:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.ruff]
+line-length = 130
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["ircbot", "agentirc"]
 

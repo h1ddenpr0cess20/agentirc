@@ -14,7 +14,7 @@ We mock asyncio.open_connection to provide fake StreamReader/StreamWriter object
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from ircbot.connection import IRCConnection, _BACKOFF_BASE, _BACKOFF_MAX, _BACKOFF_MULTIPLIER
 
@@ -243,7 +243,6 @@ class TestRunForeverBackoff:
     def test_backoff_resets_on_successful_connect(self):
         """After a successful connect, backoff should reset to base."""
         conn = IRCConnection("host", 6667)
-        iterations = []
         sleep_values = []
 
         call_count = 0
@@ -261,10 +260,7 @@ class TestRunForeverBackoff:
         async def fake_on_line(line):
             pass
 
-        original_connect = conn.connect
         conn.connect = fake_connect
-
-        original_disconnect = conn.disconnect
 
         async def fake_disconnect():
             conn._connected = False
@@ -369,8 +365,6 @@ class TestRunForeverBackoff:
             conn._writer = _make_writer()
 
         conn.connect = fake_connect
-
-        call_count = [0]
 
         async def fake_disconnect():
             conn._connected = False
