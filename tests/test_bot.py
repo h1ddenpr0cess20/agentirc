@@ -36,8 +36,9 @@ def _config(**overrides) -> BotConfig:
 
 def _bot(**overrides) -> IRCBot:
     bot = IRCBot(_config(**overrides))
-    # Replace the connection's send method so nothing touches real sockets
+    # Replace the connection's send methods so nothing touches real sockets
     bot.conn.send = AsyncMock()
+    bot.conn.send_secret = AsyncMock()
     return bot
 
 
@@ -213,7 +214,7 @@ class TestCommandDispatch:
 
         @bot.command("ping")
         async def ping(b, msg, args):
-            del b, msg, args
+            pass
 
         with caplog.at_level(logging.INFO, logger="ircbot.bot"):
             _run(bot._try_command(parse(":alice!u@h PRIVMSG #test :hello there")))
@@ -370,14 +371,18 @@ class TestOnConnect:
     def test_sends_pass_if_configured(self):
         bot = _bot(password="secret")
         _run(bot._on_connect())
+        # The password goes out over send_secret so it never reaches the log.
+        secret_calls = [c[0] for c in bot.conn.send_secret.call_args_list]
+        assert ("PASS secret", "PASS <redacted>") in secret_calls
         calls = [c[0][0] for c in bot.conn.send.call_args_list]
-        assert "PASS secret" in calls
+        assert all("PASS" not in c for c in calls)
 
     def test_no_pass_when_empty(self):
         bot = _bot(password="")
         _run(bot._on_connect())
         calls = [c[0][0] for c in bot.conn.send.call_args_list]
         assert all("PASS" not in c for c in calls)
+        assert bot.conn.send_secret.call_args_list == []
 
     def test_nick_resets_on_reconnect(self):
         bot = _bot(nick="original")

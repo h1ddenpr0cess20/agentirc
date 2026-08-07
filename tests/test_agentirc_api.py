@@ -105,17 +105,15 @@ class TestResponsesClient:
 
         class FakeClient:
             def __init__(self, *args, **kwargs):
-                del args, kwargs
+                pass
 
             async def __aenter__(self):
                 return self
 
             async def __aexit__(self, exc_type, exc, tb):
-                del exc_type, exc, tb
                 return False
 
             async def post(self, url, headers=None, json=None):
-                del url, headers, json
                 return FakeResponse()
 
         monkeypatch.setattr("agentirc.api.httpx.AsyncClient", FakeClient)
@@ -137,17 +135,15 @@ class TestResponsesClient:
 
         class FakeClient:
             def __init__(self, *args, **kwargs):
-                del args, kwargs
+                pass
 
             async def __aenter__(self):
                 return self
 
             async def __aexit__(self, exc_type, exc, tb):
-                del exc_type, exc, tb
                 return False
 
             async def post(self, url, headers=None, json=None):
-                del headers, json
                 assert url == "https://api.x.ai/v1/responses"
                 return FakeResponse()
 
@@ -172,17 +168,15 @@ class TestResponsesClient:
 
         class FakeClient:
             def __init__(self, *args, **kwargs):
-                del args, kwargs
+                pass
 
             async def __aenter__(self):
                 return self
 
             async def __aexit__(self, exc_type, exc, tb):
-                del exc_type, exc, tb
                 return False
 
             async def get(self, url, headers=None):
-                del url, headers
                 return FakeResponse()
 
         monkeypatch.setattr("agentirc.api.httpx.AsyncClient", FakeClient)
@@ -199,17 +193,15 @@ class TestResponsesClient:
 
         class FakeClient:
             def __init__(self, *args, **kwargs):
-                del args, kwargs
+                pass
 
             async def __aenter__(self):
                 return self
 
             async def __aexit__(self, exc_type, exc, tb):
-                del exc_type, exc, tb
                 return False
 
             async def get(self, url, headers=None):
-                del headers
                 assert url == "https://api.x.ai/v1/models"
                 return FakeResponse()
 
